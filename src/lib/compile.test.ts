@@ -39,9 +39,41 @@ describe('extractClassCandidates', () => {
     expect(found.filter((c) => c === 'p-4')).toHaveLength(1);
   });
 
-  it('ignores the contents of code fences', () => {
-    const found = extractClassCandidates(['```html', '<div className="p-9">', '```'].join('\n'));
+  it('scrapes classes from a block the agent wrapped in a fence', () => {
+    // THE agent DELIVERY FORMAT: one ```mdx fence around the entire page.
+    // The old implementation deleted every fenced span, so this returned [] - zero
+    // classes, zero CSS, compiled_css '' on every page of every site - while the
+    // gate still reported valid:true. This is the regression that shipped unstyled
+    // sites, so it is asserted directly.
+    const fenced = [
+      '```mdx',
+      '<section className="bg-[var(--bg-canvas)] p-[var(--section-gap)]">',
+      '  <h1 className="text-[length:var(--display-scale)]">Hi</h1>',
+      '</section>',
+      '```',
+    ].join('\n');
+
+    const found = extractClassCandidates(fenced);
+    expect(found).toContain('bg-[var(--bg-canvas)]');
+    expect(found).toContain('p-[var(--section-gap)]');
+    expect(found).toContain('text-[length:var(--display-scale)]');
+    expect(found.length).toBeGreaterThan(0);
+  });
+
+  it('still ignores example fences embedded inside prose', () => {
+    // Prose that merely CONTAINS an example must not have that example scraped.
+    const prose = [
+      'Here is an example of the pattern:',
+      '```html',
+      '<div className="p-9">example only</div>',
+      '```',
+      'Now the real content:',
+      '<div className="p-4">real</div>',
+    ].join('\n');
+
+    const found = extractClassCandidates(prose);
     expect(found).not.toContain('p-9');
+    expect(found).toContain('p-4');
   });
 
   it('handles className with a JSX expression container', () => {

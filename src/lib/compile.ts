@@ -52,9 +52,30 @@ const CLASSNAME_PATTERNS = [
   /class\s*=\s*"([^"]*)"/g,
 ];
 
-/** Fenced code blocks are examples, not real markup - never compile them. */
+/**
+ * Strips a code fence that WRAPS THE WHOLE BLOCK, leaving any inner example
+ * fences alone.
+ *
+ * The previous implementation removed every ```...``` span. The agent's entire
+ * deliverable is one ```mdx fence, so that deleted 100% of the content: zero
+ * className tokens, zero classes, zero CSS, and `compiled_css` stored as '' on
+ * every page of every site. The gate still reported valid:true, because an empty
+ * string is valid MDX - which is why this survived a full end-to-end run and only
+ * showed up as an unstyled page in a real browser.
+ *
+ * A fence is treated as a WRAPPER only when it opens the block (ignoring leading
+ * whitespace) and the first closing fence is the final non-whitespace content.
+ * Anything else is prose with embedded examples and is stripped as before.
+ */
 function stripCodeFences(source: string): string {
-  return source.replace(/```[\s\S]*?```/g, '').replace(/~~~[\s\S]*?~~~/g, '');
+  const text = String(source ?? '');
+
+  const wrapper = /^\s*(?:```|~~~)[^\n]*\n([\s\S]*?)\n?\s*(?:```|~~~)\s*$/.exec(text);
+  if (wrapper) return wrapper[1];
+
+  // No whole-block wrapper: drop embedded example fences so their contents are
+  // not scraped as real markup.
+  return text.replace(/```[\s\S]*?```/g, '').replace(/~~~[\s\S]*?~~~/g, '');
 }
 
 /**
