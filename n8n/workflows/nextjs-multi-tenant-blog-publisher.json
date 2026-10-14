@@ -105,7 +105,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// Two entry points converge here:\n//   - the webhook, which carries an explicit domain (and optionally a topic)\n//   - the daily schedule, whose loop item is a site row\n// Both become the same shape.\nconst item = $input.first().json;\n\nconst fromWebhook = item.body ?? null;\nconst domain = String(\n  (fromWebhook && fromWebhook.domain) || item.domain || ''\n).toLowerCase().replace(/^https?:\\/\\//, '').replace(/\\/.*$/, '').replace(/^www\\./, '').trim();\n\nif (!domain) throw new Error('domain is required (or run from the schedule over live sites).');\n\nreturn [\n  {\n    json: {\n      domain,\n      topic_override: fromWebhook?.topic_override ? String(fromWebhook.topic_override) : null,\n      count: Math.min(Math.max(Number(fromWebhook?.count ?? 1), 1), 5),\n      requested_at: new Date().toISOString(),\n    },\n  },\n];"
+        "jsCode": "// Two entry points converge here:\n//   - the webhook, which carries an explicit domain (and optionally a topic)\n//   - the daily schedule, whose loop item is a site row\n// Both become the same shape.\nconst item = $input.first().json;\n\nconst fromWebhook = item.body ?? null;\nconst domain = String(\n  (fromWebhook && fromWebhook.domain) || item.domain || ''\n).toLowerCase().replace(/^https?:\\/\\//, '').replace(/\\/.*$/, '').replace(/^www\\./, '').trim();\n\nif (!domain) throw new Error('domain is required (or run from the schedule over live sites).');\n\n// The origin value decides the exit path at the end of the run: the webhook lane\n// must respond to its caller, the scheduled lane must loop to the next site. Set\n// here because this is the only node that knows which trigger fired.\nconst origin = fromWebhook ? 'webhook' : 'schedule';\n\nreturn [\n  {\n    json: {\n      domain,\n      origin,\n      topic_override: fromWebhook?.topic_override ? String(fromWebhook.topic_override) : null,\n      count: Math.min(Math.max(Number(fromWebhook?.count ?? 1), 1), 5),\n      requested_at: new Date().toISOString(),\n    },\n  },\n];"
       },
       "id": "a1e0c0de-Normalize Blog Request-code-4b1e-9f2a-8c3d5e6f7a8b",
       "name": "Normalize Blog Request",
@@ -169,7 +169,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const rows = $input.all();\nconst site = rows[0]?.json;\nif (!site || !site.id) {\n  throw new Error('No tenant found for domain ' + $('Normalize Blog Request').first().json.domain);\n}\nconst request = $('Normalize Blog Request').first().json;\nreturn [{ json: { ...request, site } }];"
+        "jsCode": "const rows = $input.all();\nconst site = rows[0]?.json;\nif (!site || !site.id) {\n  throw new Error('No tenant found for domain ' + $('Normalize Blog Request').first().json.domain);\n}\nconst request = $('Normalize Blog Request').first().json;\n// The origin value is carried forward so the exit branch can tell lanes apart.\nreturn [{ json: { ...request, site } }];"
       },
       "id": "a1e0c0de-Check Tenant Exists-code-4b1e-9f2a-8c3d5e6f7a8b",
       "name": "Check Tenant Exists",
@@ -475,7 +475,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{\n  \"status\": $('Merge Blog Results').first().json.salvaged ? \"published_unverified\" : \"published\",\n  \"domain\": $('Merge Blog Results').first().json.domain,\n  \"slug\": $('Merge Blog Results').first().json.slug,\n  \"url\": \"https://\" + $('Merge Blog Results').first().json.domain + \"/blog/\" + $('Merge Blog Results').first().json.slug,\n  \"title\": $('Merge Blog Results').first().json.topic,\n  \"words\": $('Merge Blog Results').first().json.word_count ?? null,\n  \"revalidated\": true\n}",
+        "responseBody": "={{ $json }}",
         "options": {}
       },
       "id": "a1e0c0de-Respond - Blog Published-res-4b1e-9f2a-8c3d5e6f7a8b",
@@ -484,6 +484,52 @@
       "typeVersion": 1.1,
       "position": [
         4680,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const post = $('Prepare Post Row').first().json;\nreturn [\n  {\n    json: {\n      status: $('Merge Blog Results').first().json.salvaged ? 'published_unverified' : 'published',\n      domain: post.domain,\n      slug: post.slug,\n      url: 'https://' + post.domain + '/blog/' + post.slug,\n      title: post.title,\n      words: $('Merge Blog Results').first().json.word_count ?? null,\n      revalidated: true,\n    },\n  },\n];"
+      },
+      "id": "a1e0c0de-Build Blog Response-code-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "Build Blog Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4940,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "condition-1",
+              "leftValue": "={{ $json.origin }}",
+              "rightValue": "schedule",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1e0c0de-Route After Publish-if-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "Route After Publish",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        5200,
         0
       ]
     },
@@ -505,7 +551,7 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.3,
       "position": [
-        5200,
+        5720,
         0
       ],
       "credentials": {
@@ -714,6 +760,35 @@
     },
     "Revalidate Tenant Blog": {
       "main": [
+        [
+          {
+            "node": "Build Blog Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Blog Response": {
+      "main": [
+        [
+          {
+            "node": "Route After Publish",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route After Publish": {
+      "main": [
+        [
+          {
+            "node": "Loop Live Sites",
+            "type": "main",
+            "index": 0
+          }
+        ],
         [
           {
             "node": "Respond - Blog Published",

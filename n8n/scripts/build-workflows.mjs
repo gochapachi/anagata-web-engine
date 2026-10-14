@@ -698,22 +698,42 @@ return pages.map((item) => {
     ],
   }),
 
+  codeNode({
+    name: 'Build Site Response',
+    jsCode: `// Builds the webhook response object.
+//
+// This is a Code node rather than an expression on the Respond node on purpose:
+// a multi-line JSON literal inside a Respond node's expression field is easy to
+// get wrong (an unbalanced \`{{\` fails validation at runtime, not at save time),
+// and the proven pattern in this codebase is Respond-with \`={{ $json }}\`.
+const request = $('Normalize Site Request').first().json;
+const pages = $('Merge Page Results').all();
+
+return [
+  {
+    json: {
+      status: 'created',
+      slug: request.slug,
+      domain: request.domain,
+      preview_url: 'https://' + request.preview_subdomain,
+      pages_generated: pages.length,
+      pages_salvaged: pages.filter((item) => item.json.salvaged === true).length,
+      design: pages.length
+        ? {
+            shell: pages[0].json.genome.shell_archetype,
+            nav: pages[0].json.genome.nav_topology,
+            color_mode: pages[0].json.genome.color_mode,
+            rhythm: pages[0].json.rhythm,
+          }
+        : null,
+    },
+  },
+];`,
+  }),
+
   respondNode({
     name: 'Respond - Site Created',
-    bodyExpression: `={{
-  "status": "created",
-  "slug": $('Normalize Site Request').first().json.slug,
-  "domain": $('Normalize Site Request').first().json.domain,
-  "preview_url": "https://" + $('Normalize Site Request').first().json.preview_subdomain,
-  "pages_generated": $('Merge Page Results').all().length,
-  "pages_salvaged": $('Merge Page Results').all().filter((item) => item.json.salvaged === true).length,
-  "design": {
-    "shell": $('Merge Page Results').first().json.genome.shell_archetype,
-    "nav": $('Merge Page Results').first().json.genome.nav_topology,
-    "color_mode": $('Merge Page Results').first().json.genome.color_mode,
-    "rhythm": $('Merge Page Results').first().json.rhythm
-  }
-}`,
+    bodyExpression: '={{ $json }}',
   }),
 ];
 
@@ -763,10 +783,16 @@ const domain = String(
 
 if (!domain) throw new Error('domain is required (or run from the schedule over live sites).');
 
+// The origin value decides the exit path at the end of the run: the webhook lane
+// must respond to its caller, the scheduled lane must loop to the next site. Set
+// here because this is the only node that knows which trigger fired.
+const origin = fromWebhook ? 'webhook' : 'schedule';
+
 return [
   {
     json: {
       domain,
+      origin,
       topic_override: fromWebhook?.topic_override ? String(fromWebhook.topic_override) : null,
       count: Math.min(Math.max(Number(fromWebhook?.count ?? 1), 1), 5),
       requested_at: new Date().toISOString(),
@@ -799,6 +825,7 @@ if (!site || !site.id) {
   throw new Error('No tenant found for domain ' + $('Normalize Blog Request').first().json.domain);
 }
 const request = $('Normalize Blog Request').first().json;
+// The origin value is carried forward so the exit branch can tell lanes apart.
 return [{ json: { ...request, site } }];`,
   }),
 
@@ -1147,15 +1174,35 @@ return [
 
   respondNode({
     name: 'Respond - Blog Published',
-    bodyExpression: `={{
-  "status": $('Merge Blog Results').first().json.salvaged ? "published_unverified" : "published",
-  "domain": $('Merge Blog Results').first().json.domain,
-  "slug": $('Merge Blog Results').first().json.slug,
-  "url": "https://" + $('Merge Blog Results').first().json.domain + "/blog/" + $('Merge Blog Results').first().json.slug,
-  "title": $('Merge Blog Results').first().json.topic,
-  "words": $('Merge Blog Results').first().json.word_count ?? null,
-  "revalidated": true
-}`,
+    bodyExpression: '={{ $json }}',
+  }),
+
+  codeNode({
+    name: 'Build Blog Response',
+    jsCode: `const post = $('Prepare Post Row').first().json;
+return [
+  {
+    json: {
+      status: $('Merge Blog Results').first().json.salvaged ? 'published_unverified' : 'published',
+      domain: post.domain,
+      slug: post.slug,
+      url: 'https://' + post.domain + '/blog/' + post.slug,
+      title: post.title,
+      words: $('Merge Blog Results').first().json.word_count ?? null,
+      revalidated: true,
+    },
+  },
+];`,
+  }),
+
+  ifNode({
+    name: 'Route After Publish',
+    // The scheduled lane must loop to the next site; the webhook lane must
+    // respond once. Responding from INSIDE the loop would emit one webhook
+    // response per site and end the loop early, so the branch happens here.
+    leftValue: '={{ $json.origin }}',
+    rightValue: 'schedule',
+    operator: { type: 'string', operation: 'equals' },
   }),
 ];
 
@@ -1180,7 +1227,8 @@ const siteBuilderConnections = {
   'Expand Pages For Upsert': { main: [[edge('Upsert Pages')]] },
   'Upsert Pages': { main: [[edge('Seed Cornerstone Blogs')]] },
   'Seed Cornerstone Blogs': { main: [[edge('Revalidate Tenant')]] },
-  'Revalidate Tenant': { main: [[edge('Respond - Site Created')]] },
+  'Revalidate Tenant': { main: [[edge('Build Site Response')]] },
+  'Build Site Response': { main: [[edge('Respond - Site Created')]] },
   'Model - Gemini Argon': {
     ai_languageModel: [[edge('Page Architect Agent', 0)]],
   },
@@ -1206,7 +1254,15 @@ const blogConnections = {
   'Merge Blog Results': { main: [[edge('Prepare Post Row')]] },
   'Prepare Post Row': { main: [[edge('Upsert Post')]] },
   'Upsert Post': { main: [[edge('Revalidate Tenant Blog')]] },
-  'Revalidate Tenant Blog': { main: [[edge('Respond - Blog Published')]] },
+  'Revalidate Tenant Blog': { main: [[edge('Build Blog Response')]] },
+  'Build Blog Response': { main: [[edge('Route After Publish')]] },
+  // Exit branch. TRUE (origin=schedule) loops back to complete the iteration -
+  // without this the fan-out would publish one site and stop after the first.
+  // FALSE (origin=webhook) falls through to the single Respond node. The branch
+  // lives here rather than on the Respond node so a scheduled run never responds.
+  'Route After Publish': {
+    main: [[edge('Loop Live Sites')], [edge('Respond - Blog Published')]],
+  },
   'Model - Gemini Argon Blog': {
     ai_languageModel: [[edge('Blog Author Agent', 0)]],
   },
@@ -1305,4 +1361,57 @@ for (const [file, definition] of [
     }
   }
   console.log(`[ok] ${file}: no placeholder bodies, no reach-back writes`);
+
+  // Every `={{ ... }}` expression must CLOSE. An unbalanced `{{` saves fine and
+  // only fails at runtime, so it is checked statically here. This caught the two
+  // multi-line Respond bodies that were missing their trailing `}}`.
+  for (const node of definition.nodes) {
+    const values = [
+      node.parameters?.responseBody,
+      node.parameters?.jsonBody,
+      node.parameters?.url,
+    ].filter((value) => typeof value === 'string');
+
+    for (const value of values) {
+      const opens = (value.match(/\\{\\{/g) ?? []).length;
+      const closes = (value.match(/\\}\\}/g) ?? []).length;
+      if (opens !== closes) {
+        throw new Error(
+          `${file}: node "${node.name}" has ${opens} '{{' but ${closes} '}}' - the expression never closes`
+        );
+      }
+    }
+  }
+  console.log(`[ok] ${file}: every {{ ... }} expression is balanced`);
+
+  // A SplitInBatches node's loop output must eventually return to it, or the
+  // fan-out publishes one item and silently stops.
+  const loops = definition.nodes.filter((node) => /splitInBatches/i.test(node.type));
+  for (const loop of loops) {
+    const loopBranch = definition.connections[loop.name]?.main?.[1] ?? [];
+    if (!loopBranch.length) {
+      throw new Error(`${file}: "${loop.name}" has no loop output - nothing to iterate`);
+    }
+    const reachable = new Set([loopBranch[0].node]);
+    const queue = [loopBranch[0].node];
+    let returns = false;
+    while (queue.length && !returns) {
+      const current = queue.shift();
+      for (const branch of definition.connections[current]?.main ?? []) {
+        for (const target of branch) {
+          if (target.node === loop.name) returns = true;
+          if (!reachable.has(target.node)) {
+            reachable.add(target.node);
+            queue.push(target.node);
+          }
+        }
+      }
+    }
+    if (!returns) {
+      throw new Error(
+        `${file}: "${loop.name}" is never reached again from its loop body - the fan-out will stop after one item`
+      );
+    }
+  }
+  if (loops.length) console.log(`[ok] ${file}: ${loops.length} loop(s) close back on themselves`);
 }
