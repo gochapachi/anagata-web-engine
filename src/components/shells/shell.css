@@ -1,5 +1,27 @@
 /* Shared shell primitives. Layout + structure only - never colour literals. */
 
+/*
+ * Base typography.
+ *
+ * WHY THIS MUST EXIST: every other rule here sets font-family on a CLASS
+ * (.shell-eyebrow, .shell-body, .shell-btn), so anything without one of those
+ * classes inherited the browser default - Times New Roman. The tenant header,
+ * nav, footer and the blog article's own <p> elements all rendered as serif
+ * while the page route happened to look right only because its MDX sections
+ * carry their own Tailwind font-[var(--font-body)] classes.
+ *
+ * Declared on html so the tokens set on :root by the tenant layout are inherited
+ * by every descendant, including content the AI authored.
+ */
+html {
+  font-family: var(--font-body, system-ui, sans-serif);
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  font-family: var(--font-body, system-ui, sans-serif);
+  line-height: 1.6;
+}
+
 .shell-header {
   position: sticky;
   top: 0;
