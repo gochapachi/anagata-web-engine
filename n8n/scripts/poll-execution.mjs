@@ -73,7 +73,15 @@ const detail = await (
 const result = detail.data?.resultData ?? {};
 const runData = result.runData ?? {};
 
-console.log(`execution: ${report.id}  status=${detail.data?.status}  started=${report.startedAt}`);
+// The status lives at the TOP level of the response. With includeData=true,
+// detail.data.status is undefined - reading it there made this script report
+// "[FAIL] undefined at ..." for runs that had actually succeeded (executions
+// 121003 and 121019), which is worse than having no verifier at all because it
+// trains you to distrust a green run. Fall back to the list row, then to
+// finished, so an absent field can never be read as a failure.
+const STATUS = detail.status ?? report.status ?? (report.finished ? 'success' : 'unknown');
+
+console.log(`execution: ${report.id}  status=${STATUS}  started=${report.startedAt}`);
 console.log('');
 
 for (const [name, attempts] of Object.entries(runData)) {
@@ -91,7 +99,7 @@ if (result.error) {
 }
 
 console.log('');
-if (detail.data?.status === 'success') {
+if (STATUS === 'success') {
   const merged = runData['Merge Page Results']?.at(-1)?.data?.main?.[0] ?? [];
   const pages = runData['Upsert Pages']?.at(-1)?.data?.main?.[0] ?? [];
   console.log(`[PASS] pages merged=${merged.length} rows written=${pages.length}`);
@@ -101,5 +109,5 @@ if (detail.data?.status === 'success') {
       : '[WARN] fan-out still collapsed - inspect item counts above'
   );
 } else {
-  console.log(`[FAIL] ${detail.data?.status} at "${result.lastNodeExecuted}"`);
+  console.log(`[FAIL] ${STATUS} at "${result.lastNodeExecuted ?? 'unknown node'}"`);
 }
