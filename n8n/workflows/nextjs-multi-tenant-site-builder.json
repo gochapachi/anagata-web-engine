@@ -384,7 +384,7 @@
           "conditions": [
             {
               "id": "condition-1",
-              "leftValue": "={{ $json.healthy }}",
+              "leftValue": "={{ $('Decide Site Status').first().json.healthy }}",
               "rightValue": "",
               "operator": {
                 "type": "boolean",

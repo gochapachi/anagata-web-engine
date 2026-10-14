@@ -934,12 +934,16 @@ return pages.map((item) => {
     }),
 
     ifNode({
-      name: 'Site Healthy?',
-      // Seeding cornerstone articles onto a site with blank pages would publish
-      // blog posts pointing at dead service pages.
-      leftValue: '={{ $json.healthy }}',
-      rightValue: '',
-    }),
+        name: 'Site Healthy?',
+        // Reads the verdict from 'Decide Site Status', NOT from $json.
+        //
+        // 'Finalize Site Status' runs a PATCH with Prefer: return=representation, so
+        // its output item is the raw sites ROW - which has no `healthy` field. Using
+        // $json.healthy here therefore evaluated to undefined (falsy) on a perfectly
+        // healthy site, silently skipping cornerstone seeding (execution 120983).
+        leftValue: "={{ $('Decide Site Status').first().json.healthy }}",
+        rightValue: '',
+      }),
 
     httpNode({
       name: 'Seed Cornerstone Blogs',
@@ -1701,6 +1705,32 @@ for (const [file, definition] of [
     }
   }
   console.log(`[ok] ${file}: every $json.<field> read is emitted by the node's predecessor`);
+
+  // An IF condition may not read $json.<field> when its predecessor REPLACES the
+// item with a database row. A PATCH/POST with Prefer: return=representation
+// returns the row, discarding derived fields - so $json.healthy was undefined on
+// a healthy site and seeding was skipped (execution 120983). Such conditions must
+// reach back with $('Node').first().json.<field> instead.
+  const ROW_RETURNING = /^(Finalize Site Status|Upsert Site|Upsert Pages|Upsert Post)$/;
+  for (const node of definition.nodes) {
+    if (!/n8n-nodes-base\.if/.test(node.type ?? '')) continue;
+
+    const predecessor = Object.entries(definition.connections).find(([, outputs]) =>
+      Object.values(outputs).some((branches) =>
+        branches.some((branch) => branch.some((edge) => edge.node === node.name))
+      )
+    )?.[0];
+    if (!predecessor || !ROW_RETURNING.test(predecessor)) continue;
+
+    const leftValue = String(node.parameters?.conditions?.conditions?.[0]?.leftValue ?? '');
+    if (/\$json\./.test(leftValue)) {
+      throw new Error(
+        `${file}: IF "${node.name}" reads $json from "${predecessor}", which returns a raw ` +
+          'DB row and drops derived fields - use $(\u0027...\u0027).first().json.<field>'
+      );
+    }
+  }
+  console.log(`[ok] ${file}: IF conditions after row-returning nodes do not read $json`);
 
   console.log(`[ok] ${file}: every connection target resolves to a real node`);
 
