@@ -1,10 +1,10 @@
 {
-  "name": "Anagata Next.js Multi-Tenant Blog Publisher (v1)",
+  "name": "Anagata Next.js Multi-Tenant Blog Publisher (v2)",
   "nodes": [
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "nextjs-blog-publisher-v1",
+        "path": "nextjs-blog-publisher-v2",
         "responseMode": "responseNode",
         "options": {}
       },
@@ -16,7 +16,7 @@
         0,
         0
       ],
-      "webhookId": "nextjs-blog-publisher-v1"
+      "webhookId": "nextjs-blog-publisher-v2"
     },
     {
       "parameters": {
@@ -41,7 +41,7 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "={{ $env.SUPABASE_URL }}/rest/v1/sites",
+        "url": "https://supabase.anagataitsolutions.in/rest/v1/sites",
         "options": {},
         "sendQuery": true,
         "queryParameters": {
@@ -66,11 +66,11 @@
           "parameters": [
             {
               "name": "apikey",
-              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+              "value": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc1OTQwMDc2MCwiZXhwIjo0OTE1MDc0MzYwLCJyb2xlIjoic2VydmljZV9yb2xlIn0.R9ki9FjWzHGqvV3DZg5vU5K6t7whABmwNfts9quEikk"
             },
             {
               "name": "Authorization",
-              "value": "=Bearer ={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+              "value": "=Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc1OTQwMDc2MCwiZXhwIjo0OTE1MDc0MzYwLCJyb2xlIjoic2VydmljZV9yb2xlIn0.R9ki9FjWzHGqvV3DZg5vU5K6t7whABmwNfts9quEikk"
             }
           ]
         }
@@ -119,7 +119,7 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "={{ $env.SUPABASE_URL }}/rest/v1/sites",
+        "url": "https://supabase.anagataitsolutions.in/rest/v1/sites",
         "options": {},
         "sendQuery": true,
         "queryParameters": {
@@ -144,11 +144,11 @@
           "parameters": [
             {
               "name": "apikey",
-              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+              "value": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc1OTQwMDc2MCwiZXhwIjo0OTE1MDc0MzYwLCJyb2xlIjoic2VydmljZV9yb2xlIn0.R9ki9FjWzHGqvV3DZg5vU5K6t7whABmwNfts9quEikk"
             },
             {
               "name": "Authorization",
-              "value": "=Bearer ={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+              "value": "=Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc1OTQwMDc2MCwiZXhwIjo0OTE1MDc0MzYwLCJyb2xlIjoic2VydmljZV9yb2xlIn0.R9ki9FjWzHGqvV3DZg5vU5K6t7whABmwNfts9quEikk"
             }
           ]
         }
@@ -183,7 +183,7 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "={{ $env.SUPABASE_URL }}/rest/v1/posts",
+        "url": "https://supabase.anagataitsolutions.in/rest/v1/posts",
         "options": {},
         "sendQuery": true,
         "queryParameters": {
@@ -208,11 +208,11 @@
           "parameters": [
             {
               "name": "apikey",
-              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+              "value": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc1OTQwMDc2MCwiZXhwIjo0OTE1MDc0MzYwLCJyb2xlIjoic2VydmljZV9yb2xlIn0.R9ki9FjWzHGqvV3DZg5vU5K6t7whABmwNfts9quEikk"
             },
             {
               "name": "Authorization",
-              "value": "=Bearer ={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+              "value": "=Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc1OTQwMDc2MCwiZXhwIjo0OTE1MDc0MzYwLCJyb2xlIjoic2VydmljZV9yb2xlIn0.R9ki9FjWzHGqvV3DZg5vU5K6t7whABmwNfts9quEikk"
             }
           ]
         }
@@ -271,7 +271,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.ENGINE_URL }}/api/compile",
+        "url": "https://sites.anagataitsolutions.in/api/compile",
         "options": {},
         "sendBody": true,
         "specifyBody": "json",
@@ -286,7 +286,7 @@
             },
             {
               "name": "x-compile-secret",
-              "value": "={{ $env.ENGINE_COMPILE_SECRET }}"
+              "value": ""
             }
           ]
         }
@@ -367,7 +367,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const valid = $('Assemble Blog Post').all();\nconst salvaged = $('Salvage Blog MDX').all();\nconst items = valid.length ? valid : salvaged;\nif (!items.length) throw new Error('No blog output from either branch.');\nreturn items.map((item) => ({ json: item.json }));"
+        "jsCode": "// Converging node for the blog MDX IF's two branches.\n//\n// Reads ONLY its own input: reaching back with $('Salvage Blog MDX').all() would\n// throw on every run where the article compiled, because that node lives on the\n// untaken branch of the IF. Same defect as Merge Page Results.\nconst items = $input.all();\nif (!items.length) throw new Error('No blog output reached the merge from either MDX branch.');\nreturn items.map((item) => ({ json: item.json }));"
       },
       "id": "a1e0c0de-Merge Blog Results-code-4b1e-9f2a-8c3d5e6f7a8b",
       "name": "Merge Blog Results",
@@ -395,7 +395,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.SUPABASE_URL }}/rest/v1/posts?on_conflict=site_id,slug",
+        "url": "https://supabase.anagataitsolutions.in/rest/v1/posts?on_conflict=site_id,slug",
         "options": {},
         "sendBody": true,
         "specifyBody": "json",
@@ -410,11 +410,11 @@
             },
             {
               "name": "apikey",
-              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+              "value": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc1OTQwMDc2MCwiZXhwIjo0OTE1MDc0MzYwLCJyb2xlIjoic2VydmljZV9yb2xlIn0.R9ki9FjWzHGqvV3DZg5vU5K6t7whABmwNfts9quEikk"
             },
             {
               "name": "Authorization",
-              "value": "=Bearer ={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+              "value": "=Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc1OTQwMDc2MCwiZXhwIjo0OTE1MDc0MzYwLCJyb2xlIjoic2VydmljZV9yb2xlIn0.R9ki9FjWzHGqvV3DZg5vU5K6t7whABmwNfts9quEikk"
             },
             {
               "name": "Prefer",
@@ -439,7 +439,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.ENGINE_URL }}/api/revalidate",
+        "url": "https://sites.anagataitsolutions.in/api/revalidate",
         "options": {},
         "sendBody": true,
         "specifyBody": "json",
@@ -454,7 +454,7 @@
             },
             {
               "name": "x-revalidate-secret",
-              "value": "={{ $env.ENGINE_REVALIDATE_SECRET }}"
+              "value": "ca712e56af21730785e69c1d2e38656c7b849511680a486865d0f6df2c8a852d"
             }
           ]
         }
@@ -803,7 +803,7 @@
         [
           {
             "node": "Blog Author Agent",
-            "type": "main",
+            "type": "ai_languageModel",
             "index": 0
           }
         ]

@@ -27,12 +27,70 @@ const outDir = path.join(here, '..', 'workflows');
 const GEMINI_CREDENTIAL = { openAiApi: { id: 'vIlI3yqZbj1qnCvG', name: 'Gemini' } };
 const GEMINI_MODEL = 'gemini-argon';
 
-/** Placeholders the deployer replaces, or that n8n resolves from env. */
-const ENGINE_URL = '={{ $env.ENGINE_URL }}';
-const SUPABASE_REST = '={{ $env.SUPABASE_URL }}/rest/v1';
-const SUPABASE_KEY = '={{ $env.SUPABASE_SERVICE_ROLE_KEY }}';
-const REVALIDATE_SECRET = '={{ $env.ENGINE_REVALIDATE_SECRET }}';
-const COMPILE_SECRET = '={{ $env.ENGINE_COMPILE_SECRET }}';
+/**
+ * Runtime configuration for the generated workflows.
+ *
+ * LITERAL, NOT `$env`: this n8n sets N8N_BLOCK_ENV_ACCESS_IN_NODE=true, which
+ * blocks `$env` in node expressions, so `={{ $env.ENGINE_URL }}` would fail at
+ * runtime. The values are inlined instead (option B).
+ *
+ * Secrets come from the gitignored `.engine-secrets.local` (written by
+ * scripts/write-workflow-config.mjs) so they never enter argv, shell history or
+ * the conversation. Non-secret endpoints have defaults.
+ *
+ * IMPORTANT: this puts the Supabase service-role key in the workflow definition.
+ * Anyone with n8n editor access can already read environment variables the
+ * workflows use, so this is not a new exposure - but it IS a reason to keep n8n
+ * editor access restricted. Documented in docs/DEPLOYMENT-RUNBOOK.md.
+ */
+import { readFileSync as readConfigFile, existsSync as configExists } from 'node:fs';
+
+const CONFIG_PATH = path.join(here, '..', '..', '.engine-secrets.local');
+
+function loadRuntimeConfig() {
+  const defaults = {
+    ENGINE_URL: 'https://sites.anagataitsolutions.in',
+    SUPABASE_URL: 'https://supabase.anagataitsolutions.in',
+    SITES_BASE_DOMAIN: 'sites.anagataitsolutions.in',
+    N8N_WEBHOOK_BASE: 'https://n8n.anagataitsolutions.in/webhook',
+    ENGINE_COMPILE_SECRET: '',
+    SUPABASE_SERVICE_ROLE_KEY: '',
+    ENGINE_REVALIDATE_SECRET: '',
+  };
+
+  if (!configExists(CONFIG_PATH)) return defaults;
+
+  const file = JSON.parse(readConfigFile(CONFIG_PATH, 'utf8'));
+  // Only pick the keys we know about, so a stray field cannot leak into a URL.
+  const merged = { ...defaults };
+  for (const key of Object.keys(defaults)) {
+    if (typeof file[key] === 'string' && file[key].length) merged[key] = file[key];
+  }
+  return merged;
+}
+
+const RUNTIME = loadRuntimeConfig();
+
+const ENGINE_URL = RUNTIME.ENGINE_URL;
+const SUPABASE_REST = `${RUNTIME.SUPABASE_URL}/rest/v1`;
+const SUPABASE_KEY = RUNTIME.SUPABASE_SERVICE_ROLE_KEY;
+const REVALIDATE_SECRET = RUNTIME.ENGINE_REVALIDATE_SECRET;
+const COMPILE_SECRET = RUNTIME.ENGINE_COMPILE_SECRET;
+const SITES_BASE_DOMAIN = RUNTIME.SITES_BASE_DOMAIN;
+/** Same value, but safe to interpolate into generated jsCode strings. */
+const SITES_BASE_DOMAIN_LITERAL = RUNTIME.SITES_BASE_DOMAIN;
+const N8N_WEBHOOK_BASE = RUNTIME.N8N_WEBHOOK_BASE;
+
+/** Warn loudly rather than emitting a workflow that will fail on first call. */
+if (!SUPABASE_KEY) {
+  console.warn(
+    '[WARN] SUPABASE_SERVICE_ROLE_KEY is empty. Run scripts/write-workflow-config.mjs first,\n' +
+      '       or the generated workflows will send unauthenticated Supabase requests.'
+  );
+}
+if (!REVALIDATE_SECRET) {
+  console.warn('[WARN] ENGINE_REVALIDATE_SECRET is empty; cache revalidation will 401.');
+}
 
 let positionCounter = 0;
 const positions = () => [positionCounter * 260, 0];
@@ -226,7 +284,24 @@ function splitInBatchesNode({ name, batchSize = 1 }) {
 
 /** main-output connection helper */
 const main = (targets) => ({ main: [Array.isArray(targets) ? targets : [targets].filter(Boolean)] });
-const edge = (name, index = 0) => ({ node: name, type: 'main', index });
+
+/**
+ * Connection edge.
+ *
+ * `connectionType` MUST match the kind of socket being wired, not always 'main':
+ * an `ai_languageModel` connection whose entry says `type: 'main'` is accepted on
+ * import, validates clean, but n8n then reports the target's required input as
+ * unconnected and REFUSES TO ACTIVATE the workflow. Verified against the live
+ * instance: the existing working workflow types its model edge
+ * `{"node":"AI Agent","type":"ai_languageModel","index":0}`.
+ *
+ * Defaults to 'main' so existing main-path edges are unchanged.
+ */
+const edge = (name, index = 0, connectionType = 'main') => ({
+  node: name,
+  type: connectionType,
+  index,
+});
 
 /* =========================================================================
  * WORKFLOW 1 - Next.js Multi-Tenant Site Builder (v1)
@@ -234,7 +309,7 @@ const edge = (name, index = 0) => ({ node: name, type: 'main', index });
 
 resetPositions();
 const siteBuilderNodes = [
-  webhookNode({ name: 'Webhook - Create Next.js Site', path: 'nextjs-site-generator-v1' }),
+  webhookNode({ name: 'Webhook - Create Next.js Site', path: 'nextjs-site-generator-v2' }),
 
   codeNode({
     name: 'Normalize Site Request',
@@ -266,7 +341,7 @@ if (!slug) throw new Error('Could not derive a slug from business_name.');
 
 const domain = body.custom_domain
   ? String(body.custom_domain).toLowerCase().replace(/^https?:\\/\\//, '').replace(/\\/.*$/, '').replace(/^www\\./, '').trim()
-  : slug + '.' + ($env.SITES_BASE_DOMAIN || 'sites.anagataitsolutions.in');
+  : slug + '.' + '${SITES_BASE_DOMAIN_LITERAL}';
 
 const services = (Array.isArray(body.services) ? body.services : String(body.services).split(','))
   .map((service) => String(service).trim())
@@ -280,7 +355,7 @@ return [
       run_id: slug + '-' + Date.now().toString(36),
       slug,
       domain,
-      preview_subdomain: slug + '.' + ($env.SITES_BASE_DOMAIN || 'sites.anagataitsolutions.in'),
+      preview_subdomain: slug + '.' + '${SITES_BASE_DOMAIN_LITERAL}',
       niche: String(body.niche).trim(),
       city: String(body.city).trim(),
       business_name: String(body.business_name).trim(),
@@ -502,82 +577,120 @@ Return only the fenced \`\`\`mdx block.`,
 
   codeNode({
     name: 'Salvage MDX Blocks',
-    jsCode: `// The compile gate rejected the MDX. This camera does NOT block the run: a
+    jsCode: `// The compile gate rejected this page's MDX. This node does NOT block the run: a
 // tenant with one imperfect page is better than no tenant at all, and the site
 // is created with status 'preview' so nothing goes public unreviewed.
 //
 // What it does guarantee: the page is stored as PLAIN TEXT, never as broken JSX.
 // Broken JSX in the database would 500 a live page later.
-const gate = $input.first().json;
-const page = $('Build Page Blueprints').first().json;
-const agentOutput = $('Page Architect Agent').first().json;
-const raw = String(agentOutput.output ?? agentOutput.text ?? '');
+//
+// It maps over EVERY page, matching the one-row-per-page contract of
+// 'Assemble Valid Page'. Using .first() here would salvage a single page and
+// silently discard the other four.
+const gates = $input.all();
+const pages = $('Build Page Blueprints').all();
+const agents = $('Page Architect Agent').all();
 
-// Strip the fence and neutralise anything that looks like JSX so the stored
+if (!gates.length) throw new Error('No gate results on the salvage branch.');
+
+// Strips the fence and neutralises anything that looks like JSX so the stored
 // content is inert markdown rather than markup the renderer might execute.
-const stripped = raw
-  .replace(/^\\s*\`\`\`mdx\\s*/i, '')
-  .replace(/\\s*\`\`\`\\s*$/i, '')
-  .replace(/<\\/?[A-Za-z][^>]*>/g, '')
-  .replace(/\\{\\{?[\\s\\S]*?\\}\\}?/g, '')
-  .trim();
+function inert(raw) {
+  return String(raw ?? '')
+    .replace(/^\\s*\\x60{3}mdx\\s*/i, '')
+    .replace(/\\s*\\x60{3}\\s*$/i, '')
+    .replace(/<\\/?[A-Za-z][^>]*>/g, '')
+    .replace(/\\{\\{?[\\s\\S]*?\\}\\}?/g, '')
+    .trim();
+}
 
-const body = stripped.length > 120 ? stripped : '_Content for this page requires review._';
+return gates.map((item, i) => {
+  const gate = item.json;
+  const page = pages[i]?.json ?? {};
+  const agent = agents[i]?.json ?? {};
+  const body = inert(agent.output ?? agent.text ?? '');
 
-return [
-  {
+  return {
     json: {
       ...page,
       salvaged: true,
       compile_error: String(gate.error ?? 'unknown compile error').slice(0, 500),
-      sections: [{ md: body }],
+      sections: [{ md: body.length > 120 ? body : '_Content for this page requires review._' }],
       compiled_css: '',
       mdx_ok: false,
     },
-  },
-];`,
+  };
+});`,
   }),
 
   codeNode({
     name: 'Assemble Valid Page',
-    jsCode: `// Turns the validated MDX into the pages-row shape.
-const gate = $input.first().json;
-const page = $('Build Page Blueprints').first().json;
-const agentOutput = $('Page Architect Agent').first().json;
-const raw = String(agentOutput.output ?? agentOutput.text ?? '');
+    jsCode: `// Turns each validated MDX block into a pages-row shape: ONE ROW PER PAGE.
+//
+// Why a map and not .first(): Code nodes preserve item order, and the agent
+// fans out one item per blueprint, so the gate results, the blueprints and the
+// agent outputs all line up by index. Using .first() here collapsed a
+// five-page site into a single page - execution 120787 measured exactly that
+// (Build Page Blueprints 5 items in, Assemble Valid Page 1 item out), which is
+// how a tenant ends up with one page instead of five.
+const gates = $input.all();
+const pages = $('Build Page Blueprints').all();
+const agents = $('Page Architect Agent').all();
 
-const mdx = raw
-  .replace(/^\\s*\`\`\`mdx\\s*/i, '')
-  .replace(/\\s*\`\`\`\\s*$/i, '')
-  .trim();
+if (!gates.length) throw new Error('Compile gate returned no items.');
 
-return [
-  {
+if (pages.length !== gates.length || agents.length !== gates.length) {
+  throw new Error(
+    'Fan-out counts diverged (gate=' + gates.length + ' pages=' + pages.length +
+    ' agent=' + agents.length + '). Refusing to zip by index - pages would be mis-paired.'
+  );
+}
+
+// Unwraps the fenced mdx block the agent is instructed to emit. Backticks are
+// escaped below because this block lives inside a template literal in the
+// generator - an unescaped one terminates the string and breaks the build.
+function unfence(raw) {
+  return String(raw ?? '')
+    .replace(/^\\s*\\x60{3}mdx\\s*/i, '')
+    .replace(/\\s*\\x60{3}\\s*$/i, '')
+    .trim();
+}
+
+return gates.map((item, i) => {
+  const gate = item.json;
+  const page = pages[i].json;
+  const agent = agents[i].json;
+
+  return {
     json: {
       ...page,
       salvaged: false,
-      sections: [
-        { mdx, anchor: 'content' },
-      ],
+      sections: [{ mdx: unfence(agent.output ?? agent.text ?? ''), anchor: 'content' }],
       compiled_css: String(gate.css ?? ''),
       css_bytes: Number(gate.cssBytes ?? 0),
       warnings: gate.warnings ?? [],
       mdx_ok: true,
     },
-  },
-];`,
+  };
+});`,
   }),
 
   codeNode({
     name: 'Merge Page Results',
-    jsCode: `// Both branches converge here. n8n may deliver one branch's items only, so this
-// node reads the batch from whichever branch actually produced output.
-const validItems = $( 'Assemble Valid Page' ).all();
-const salvagedItems = $( 'Salvage MDX Blocks' ).all();
-const items = validItems.length ? validItems : salvagedItems;
-
+    jsCode: `// Converging node for the MDX IF's two branches.
+//
+// It must ONLY read its own input. An earlier version reached back with
+// $('Salvage MDX Blocks').all(), which n8n resolves by THROWING when that node
+// sits on the untaken branch of the IF - so a site with perfectly valid MDX on
+// every page failed the run with "Node 'Salvage MDX Blocks' hasn't been
+// executed" (execution 120787). $input is always defined: it is whichever
+// branch actually produced output.
+//
+// Both branch assemblers emit one item per page, so passing $input through
+// unchanged preserves the fan-out.
+const items = $input.all();
 if (!items.length) {
-  throw new Error('No page output from either the valid or the salvage branch.');
+  throw new Error('No page output reached the merge from either MDX branch.');
 }
 
 return items.map((item) => ({ json: item.json }));`,
@@ -590,7 +703,7 @@ return items.map((item) => ({ json: item.json }));`,
     jsonBody: `={
   "slug": {{ JSON.stringify($json.site_slug) }},
   "domain": {{ JSON.stringify($json.domain) }},
-  "preview_subdomain": {{ JSON.stringify($json.site_slug + '.' + ($env.SITES_BASE_DOMAIN || 'sites.anagataitsolutions.in')) }},
+  "preview_subdomain": {{ JSON.stringify($json.site_slug + '.' + '${SITES_BASE_DOMAIN_LITERAL}') }},
   "niche": {{ JSON.stringify($('Normalize Site Request').first().json.niche) }},
   "city": {{ JSON.stringify($json.city) }},
   "business_info": {
@@ -679,7 +792,7 @@ return pages.map((item) => {
   httpNode({
     name: 'Seed Cornerstone Blogs',
     method: 'POST',
-    url: '={{ $env.N8N_WEBHOOK_BASE }}/nextjs-blog-publisher-v1',
+    url: `${N8N_WEBHOOK_BASE}/nextjs-blog-publisher-v2`,
     jsonBody: `={
   "domain": {{ JSON.stringify($json.domain) }},
   "count": 2
@@ -743,7 +856,7 @@ return [
 
 resetPositions();
 const blogNodes = [
-  webhookNode({ name: 'Webhook - Publish Next.js Blog', path: 'nextjs-blog-publisher-v1' }),
+  webhookNode({ name: 'Webhook - Publish Next.js Blog', path: 'nextjs-blog-publisher-v2' }),
 
   scheduleNode({
     name: 'Schedule - Daily Blog Fanout',
@@ -1082,10 +1195,13 @@ return [
 
   codeNode({
     name: 'Merge Blog Results',
-    jsCode: `const valid = $('Assemble Blog Post').all();
-const salvaged = $('Salvage Blog MDX').all();
-const items = valid.length ? valid : salvaged;
-if (!items.length) throw new Error('No blog output from either branch.');
+    jsCode: `// Converging node for the blog MDX IF's two branches.
+//
+// Reads ONLY its own input: reaching back with $('Salvage Blog MDX').all() would
+// throw on every run where the article compiled, because that node lives on the
+// untaken branch of the IF. Same defect as Merge Page Results.
+const items = $input.all();
+if (!items.length) throw new Error('No blog output reached the merge from either MDX branch.');
 return items.map((item) => ({ json: item.json }));`,
   }),
 
@@ -1230,7 +1346,7 @@ const siteBuilderConnections = {
   'Revalidate Tenant': { main: [[edge('Build Site Response')]] },
   'Build Site Response': { main: [[edge('Respond - Site Created')]] },
   'Model - Gemini Argon': {
-    ai_languageModel: [[edge('Page Architect Agent', 0)]],
+    ai_languageModel: [[edge('Page Architect Agent', 0, 'ai_languageModel')]],
   },
 };
 
@@ -1264,7 +1380,7 @@ const blogConnections = {
     main: [[edge('Loop Live Sites')], [edge('Respond - Blog Published')]],
   },
   'Model - Gemini Argon Blog': {
-    ai_languageModel: [[edge('Blog Author Agent', 0)]],
+    ai_languageModel: [[edge('Blog Author Agent', 0, 'ai_languageModel')]],
   },
 };
 
@@ -1277,7 +1393,7 @@ blogNodes.push(lmNode({ name: 'Model - Gemini Argon Blog' }));
  * =======================================================================*/
 
 const siteBuilder = {
-  name: 'Anagata Next.js Multi-Tenant Site Builder (v1)',
+  name: 'Anagata Next.js Multi-Tenant Site Builder (v2)',
   nodes: siteBuilderNodes,
   connections: siteBuilderConnections,
   settings: {
@@ -1292,7 +1408,7 @@ const siteBuilder = {
 };
 
 const blogPublisher = {
-  name: 'Anagata Next.js Multi-Tenant Blog Publisher (v1)',
+  name: 'Anagata Next.js Multi-Tenant Blog Publisher (v2)',
   nodes: blogNodes,
   connections: blogConnections,
   settings: {
@@ -1362,6 +1478,63 @@ for (const [file, definition] of [
   }
   console.log(`[ok] ${file}: no placeholder bodies, no reach-back writes`);
 
+  // A converging node after an IF must read ONLY its own input. Referencing a
+  // sibling branch node with $('X') THROWS when that branch was not taken - so
+  // the happy path (all MDX valid) is exactly the case that breaks. This is the
+  // defect from execution 120787 and it is now rejected at build time.
+  //
+  // Comments are stripped first: these nodes carry long explanatory comments
+  // that legitimately name the sibling branch while warning against reaching
+  // into it, and the guard must judge the code, not the prose.
+  const MERGE_NODES = /^Merge (Page|Blog) Results$/;
+  const FORBIDDEN_REACH = /(Salvage|Assemble) (MDX Blocks|Valid Page|Blog MDX|Blog Post)/;
+  const stripComments = (code) =>
+    code
+      .replace(/^\s*\/\/.*$/gm, '')
+      .replace(/([^:'"`])\/\/.*$/gm, '$1');
+
+  for (const node of definition.nodes) {
+    if (!MERGE_NODES.test(node.name)) continue;
+    const code = node.parameters?.jsCode;
+    if (typeof code !== 'string') continue;
+    const live = stripComments(code);
+
+    if (!/\$input\.all\(\)/.test(live)) {
+      throw new Error(`${file}: "${node.name}" does not read $input.all() - it must, to survive either branch`);
+    }
+    const reach = FORBIDDEN_REACH.exec(live);
+    if (reach) {
+      throw new Error(
+        `${file}: "${node.name}" references "${reach[1]}" - a sibling IF branch that may never execute`
+      );
+    }
+  }
+  console.log(`[ok] ${file}: merge nodes read only their own input`);
+
+  // Every branch of the site builder's IF must emit one item per incoming item,
+  // or the per-page fan-out silently collapses to a single row downstream
+  // (5 blueprints in, 1 page out - execution 120787).
+  //
+  // SCOPE: ONLY the page pair. The blog publisher assembles exactly ONE article
+  // per webhook call, so .first() is correct there and must not be flagged.
+  const PAGE_FANOUT_NODES = ['Assemble Valid Page', 'Salvage MDX Blocks'];
+  if (definition.nodes.some((node) => PAGE_FANOUT_NODES.includes(node.name))) {
+    for (const name of PAGE_FANOUT_NODES) {
+      const node = definition.nodes.find((candidate) => candidate.name === name);
+      if (!node) continue;
+      const live = stripComments(node.parameters.jsCode ?? '');
+      if (/\.first\(\)/.test(live)) {
+        throw new Error(
+          `${file}: "${name}" uses .first() and would collapse the per-page fan-out into one row`
+        );
+      }
+      if (!/\$input\.all\(\)/.test(live)) {
+        throw new Error(`${file}: "${name}" must map over $input.all() to preserve the fan-out`);
+      }
+    }
+    console.log(`[ok] ${file}: page IF branches preserve the per-page fan-out`);
+  }
+
   // Every `={{ ... }}` expression must CLOSE. An unbalanced `{{` saves fine and
   // only fails at runtime, so it is checked statically here. This caught the two
   // multi-line Respond bodies that were missing their trailing `}}`.
@@ -1414,4 +1587,64 @@ for (const [file, definition] of [
     }
   }
   if (loops.length) console.log(`[ok] ${file}: ${loops.length} loop(s) close back on themselves`);
-}
+
+    // N8N_BLOCK_ENV_ACCESS_IN_NODE=true on this instance, so any surviving $env
+    // reference would fail at RUNTIME rather than at deploy. Fail the build instead
+    // - a workflow that 500s its first HTTP node is worse than one that never
+    // deployed. This is the guard for the option-B inlining.
+    const envRefs = [...JSON.stringify(definition).matchAll(/\$env\.[A-Z_]+/g)].map((m) => m[0]);
+    if (envRefs.length) {
+      throw new Error(
+        `${file}: found $env references (${[...new Set(envRefs)].join(', ')}) but this n8n sets ` +
+          `N8N_BLOCK_ENV_ACCESS_IN_NODE=true, so they would fail at runtime. Inline the values instead.`
+      );
+    }
+    console.log(`[ok] ${file}: no $env references (values are inlined)`);
+
+    // Every HTTP node that talks to Supabase must carry its auth headers, or the
+    // request 401s silently at runtime.
+    for (const node of definition.nodes) {
+      const url = node.parameters?.url;
+      if (typeof url !== 'string' || !/rest\/v1/.test(url)) continue;
+      const headers = node.parameters?.headerParameters?.parameters ?? [];
+      const names = headers.map((h) => String(h.name).toLowerCase());
+      if (!names.includes('apikey') || !names.includes('authorization')) {
+        throw new Error(`${file}: Supabase node "${node.name}" is missing apikey/Authorization headers`);
+      }
+      const auth = headers.find((h) => String(h.name).toLowerCase() === 'authorization');
+      if (!/^=Bearer \S+/.test(String(auth.value))) {
+        throw new Error(`${file}: Supabase node "${node.name}" has an empty Authorization header`);
+      }
+    }
+    console.log(`[ok] ${file}: all Supabase nodes carry auth headers`);
+
+        // Any node with a typed input socket must have an inbound edge of THAT type.
+        // An ai_languageModel/ai_tool/ai_outputParser edge whose entry says
+        // `type: 'main'` imports fine and passes validation, but n8n refuses to
+        // activate the workflow ("has no node connected to its required input").
+        // Caught exactly that on the Page Architect Agent model node.
+        const AI_INPUT_TYPES = ['ai_languageModel', 'ai_tool', 'ai_outputParser', 'ai_memory', 'ai_retriever'];
+        const agentNodes = definition.nodes.filter((node) => /langchain\.agent$/.test(node.type));
+        for (const agent of agentNodes) {
+          const inbound = new Set();
+          for (const outputs of Object.values(definition.connections)) {
+            for (const [kind, branches] of Object.entries(outputs)) {
+              if (!AI_INPUT_TYPES.includes(kind)) continue;
+              for (const branch of branches) {
+                for (const target of branch) {
+                  if (target.node === agent.name && target.type === kind) inbound.add(kind);
+                }
+              }
+            }
+          }
+          if (!inbound.has('ai_languageModel')) {
+            throw new Error(
+              `${file}: agent "${agent.name}" has no correctly-typed ai_languageModel edge; ` +
+                `n8n will refuse to activate it. Check the edge's "type" field.`
+            );
+          }
+        }
+        if (agentNodes.length) {
+          console.log(`[ok] ${file}: ${agentNodes.length} agent(s) have a typed ai_languageModel edge`);
+        }
+      }

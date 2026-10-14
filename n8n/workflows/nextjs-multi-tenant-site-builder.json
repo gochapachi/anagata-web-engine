@@ -1,10 +1,10 @@
 {
-  "name": "Anagata Next.js Multi-Tenant Site Builder (v1)",
+  "name": "Anagata Next.js Multi-Tenant Site Builder (v2)",
   "nodes": [
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "nextjs-site-generator-v1",
+        "path": "nextjs-site-generator-v2",
         "responseMode": "responseNode",
         "options": {}
       },
@@ -16,12 +16,12 @@
         0,
         0
       ],
-      "webhookId": "nextjs-site-generator-v1"
+      "webhookId": "nextjs-site-generator-v2"
     },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// Validates the request and derives every identifier the rest of the run needs.\n// Throws early: a malformed request must fail in 1 second, not after 20 minutes\n// of LLM spend.\nconst body = $input.first().json.body ?? $input.first().json;\n\nconst required = ['business_name', 'niche', 'city', 'phone', 'services'];\nconst missing = required.filter((field) => {\n  const value = body[field];\n  if (Array.isArray(value)) return value.length === 0;\n  return value === undefined || value === null || String(value).trim() === '';\n});\nif (missing.length) {\n  throw new Error('Missing required field(s): ' + missing.join(', '));\n}\n\nconst slugify = (value) =>\n  String(value)\n    .toLowerCase()\n    .normalize('NFKD')\n    .replace(/[^a-z0-9]+/g, '-')\n    .replace(/^-+|-+$/g, '')\n    .slice(0, 48);\n\nconst slug = slugify(body.slug || body.business_name);\nif (!slug) throw new Error('Could not derive a slug from business_name.');\n\nconst domain = body.custom_domain\n  ? String(body.custom_domain).toLowerCase().replace(/^https?:\\/\\//, '').replace(/\\/.*$/, '').replace(/^www\\./, '').trim()\n  : slug + '.' + ($env.SITES_BASE_DOMAIN || 'sites.anagataitsolutions.in');\n\nconst services = (Array.isArray(body.services) ? body.services : String(body.services).split(','))\n  .map((service) => String(service).trim())\n  .filter(Boolean);\n\nif (!services.length) throw new Error('services must contain at least one entry.');\n\nreturn [\n  {\n    json: {\n      run_id: slug + '-' + Date.now().toString(36),\n      slug,\n      domain,\n      preview_subdomain: slug + '.' + ($env.SITES_BASE_DOMAIN || 'sites.anagataitsolutions.in'),\n      niche: String(body.niche).trim(),\n      city: String(body.city).trim(),\n      business_name: String(body.business_name).trim(),\n      phone: String(body.phone).trim(),\n      whatsapp: body.whatsapp ? String(body.whatsapp).trim() : null,\n      email: body.email ? String(body.email).trim() : null,\n      address: body.address ? String(body.address).trim() : null,\n      services,\n      // Optional: an existing site to draw tone/structure cues from.\n      reference_url: body.reference_url ? String(body.reference_url) : null,\n      brand_notes: body.brand_notes ? String(body.brand_notes) : null,\n      doctor_or_lead: body.doctor_or_lead ?? null,\n      status: body.custom_domain ? 'live' : 'preview',\n      started_at: new Date().toISOString(),\n    },\n  },\n];"
+        "jsCode": "// Validates the request and derives every identifier the rest of the run needs.\n// Throws early: a malformed request must fail in 1 second, not after 20 minutes\n// of LLM spend.\nconst body = $input.first().json.body ?? $input.first().json;\n\nconst required = ['business_name', 'niche', 'city', 'phone', 'services'];\nconst missing = required.filter((field) => {\n  const value = body[field];\n  if (Array.isArray(value)) return value.length === 0;\n  return value === undefined || value === null || String(value).trim() === '';\n});\nif (missing.length) {\n  throw new Error('Missing required field(s): ' + missing.join(', '));\n}\n\nconst slugify = (value) =>\n  String(value)\n    .toLowerCase()\n    .normalize('NFKD')\n    .replace(/[^a-z0-9]+/g, '-')\n    .replace(/^-+|-+$/g, '')\n    .slice(0, 48);\n\nconst slug = slugify(body.slug || body.business_name);\nif (!slug) throw new Error('Could not derive a slug from business_name.');\n\nconst domain = body.custom_domain\n  ? String(body.custom_domain).toLowerCase().replace(/^https?:\\/\\//, '').replace(/\\/.*$/, '').replace(/^www\\./, '').trim()\n  : slug + '.' + 'sites.anagataitsolutions.in';\n\nconst services = (Array.isArray(body.services) ? body.services : String(body.services).split(','))\n  .map((service) => String(service).trim())\n  .filter(Boolean);\n\nif (!services.length) throw new Error('services must contain at least one entry.');\n\nreturn [\n  {\n    json: {\n      run_id: slug + '-' + Date.now().toString(36),\n      slug,\n      domain,\n      preview_subdomain: slug + '.' + 'sites.anagataitsolutions.in',\n      niche: String(body.niche).trim(),\n      city: String(body.city).trim(),\n      business_name: String(body.business_name).trim(),\n      phone: String(body.phone).trim(),\n      whatsapp: body.whatsapp ? String(body.whatsapp).trim() : null,\n      email: body.email ? String(body.email).trim() : null,\n      address: body.address ? String(body.address).trim() : null,\n      services,\n      // Optional: an existing site to draw tone/structure cues from.\n      reference_url: body.reference_url ? String(body.reference_url) : null,\n      brand_notes: body.brand_notes ? String(body.brand_notes) : null,\n      doctor_or_lead: body.doctor_or_lead ?? null,\n      status: body.custom_domain ? 'live' : 'preview',\n      started_at: new Date().toISOString(),\n    },\n  },\n];"
       },
       "id": "a1e0c0de-Normalize Site Request-code-4b1e-9f2a-8c3d5e6f7a8b",
       "name": "Normalize Site Request",
@@ -35,7 +35,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.ENGINE_URL }}/api/genome",
+        "url": "https://sites.anagataitsolutions.in/api/genome",
         "options": {},
         "sendBody": true,
         "specifyBody": "json",
@@ -105,7 +105,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.ENGINE_URL }}/api/compile",
+        "url": "https://sites.anagataitsolutions.in/api/compile",
         "options": {},
         "sendBody": true,
         "specifyBody": "json",
@@ -120,7 +120,7 @@
             },
             {
               "name": "x-compile-secret",
-              "value": "={{ $env.ENGINE_COMPILE_SECRET }}"
+              "value": ""
             }
           ]
         }
@@ -173,7 +173,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// The compile gate rejected the MDX. This camera does NOT block the run: a\n// tenant with one imperfect page is better than no tenant at all, and the site\n// is created with status 'preview' so nothing goes public unreviewed.\n//\n// What it does guarantee: the page is stored as PLAIN TEXT, never as broken JSX.\n// Broken JSX in the database would 500 a live page later.\nconst gate = $input.first().json;\nconst page = $('Build Page Blueprints').first().json;\nconst agentOutput = $('Page Architect Agent').first().json;\nconst raw = String(agentOutput.output ?? agentOutput.text ?? '');\n\n// Strip the fence and neutralise anything that looks like JSX so the stored\n// content is inert markdown rather than markup the renderer might execute.\nconst stripped = raw\n  .replace(/^\\s*```mdx\\s*/i, '')\n  .replace(/\\s*```\\s*$/i, '')\n  .replace(/<\\/?[A-Za-z][^>]*>/g, '')\n  .replace(/\\{\\{?[\\s\\S]*?\\}\\}?/g, '')\n  .trim();\n\nconst body = stripped.length > 120 ? stripped : '_Content for this page requires review._';\n\nreturn [\n  {\n    json: {\n      ...page,\n      salvaged: true,\n      compile_error: String(gate.error ?? 'unknown compile error').slice(0, 500),\n      sections: [{ md: body }],\n      compiled_css: '',\n      mdx_ok: false,\n    },\n  },\n];"
+        "jsCode": "// The compile gate rejected this page's MDX. This node does NOT block the run: a\n// tenant with one imperfect page is better than no tenant at all, and the site\n// is created with status 'preview' so nothing goes public unreviewed.\n//\n// What it does guarantee: the page is stored as PLAIN TEXT, never as broken JSX.\n// Broken JSX in the database would 500 a live page later.\n//\n// It maps over EVERY page, matching the one-row-per-page contract of\n// 'Assemble Valid Page'. Using .first() here would salvage a single page and\n// silently discard the other four.\nconst gates = $input.all();\nconst pages = $('Build Page Blueprints').all();\nconst agents = $('Page Architect Agent').all();\n\nif (!gates.length) throw new Error('No gate results on the salvage branch.');\n\n// Strips the fence and neutralises anything that looks like JSX so the stored\n// content is inert markdown rather than markup the renderer might execute.\nfunction inert(raw) {\n  return String(raw ?? '')\n    .replace(/^\\s*\\x60{3}mdx\\s*/i, '')\n    .replace(/\\s*\\x60{3}\\s*$/i, '')\n    .replace(/<\\/?[A-Za-z][^>]*>/g, '')\n    .replace(/\\{\\{?[\\s\\S]*?\\}\\}?/g, '')\n    .trim();\n}\n\nreturn gates.map((item, i) => {\n  const gate = item.json;\n  const page = pages[i]?.json ?? {};\n  const agent = agents[i]?.json ?? {};\n  const body = inert(agent.output ?? agent.text ?? '');\n\n  return {\n    json: {\n      ...page,\n      salvaged: true,\n      compile_error: String(gate.error ?? 'unknown compile error').slice(0, 500),\n      sections: [{ md: body.length > 120 ? body : '_Content for this page requires review._' }],\n      compiled_css: '',\n      mdx_ok: false,\n    },\n  };\n});"
       },
       "id": "a1e0c0de-Salvage MDX Blocks-code-4b1e-9f2a-8c3d5e6f7a8b",
       "name": "Salvage MDX Blocks",
@@ -187,7 +187,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// Turns the validated MDX into the pages-row shape.\nconst gate = $input.first().json;\nconst page = $('Build Page Blueprints').first().json;\nconst agentOutput = $('Page Architect Agent').first().json;\nconst raw = String(agentOutput.output ?? agentOutput.text ?? '');\n\nconst mdx = raw\n  .replace(/^\\s*```mdx\\s*/i, '')\n  .replace(/\\s*```\\s*$/i, '')\n  .trim();\n\nreturn [\n  {\n    json: {\n      ...page,\n      salvaged: false,\n      sections: [\n        { mdx, anchor: 'content' },\n      ],\n      compiled_css: String(gate.css ?? ''),\n      css_bytes: Number(gate.cssBytes ?? 0),\n      warnings: gate.warnings ?? [],\n      mdx_ok: true,\n    },\n  },\n];"
+        "jsCode": "// Turns each validated MDX block into a pages-row shape: ONE ROW PER PAGE.\n//\n// Why a map and not .first(): Code nodes preserve item order, and the agent\n// fans out one item per blueprint, so the gate results, the blueprints and the\n// agent outputs all line up by index. Using .first() here collapsed a\n// five-page site into a single page - execution 120787 measured exactly that\n// (Build Page Blueprints 5 items in, Assemble Valid Page 1 item out), which is\n// how a tenant ends up with one page instead of five.\nconst gates = $input.all();\nconst pages = $('Build Page Blueprints').all();\nconst agents = $('Page Architect Agent').all();\n\nif (!gates.length) throw new Error('Compile gate returned no items.');\n\nif (pages.length !== gates.length || agents.length !== gates.length) {\n  throw new Error(\n    'Fan-out counts diverged (gate=' + gates.length + ' pages=' + pages.length +\n    ' agent=' + agents.length + '). Refusing to zip by index - pages would be mis-paired.'\n  );\n}\n\n// Unwraps the fenced mdx block the agent is instructed to emit. Backticks are\n// escaped below because this block lives inside a template literal in the\n// generator - an unescaped one terminates the string and breaks the build.\nfunction unfence(raw) {\n  return String(raw ?? '')\n    .replace(/^\\s*\\x60{3}mdx\\s*/i, '')\n    .replace(/\\s*\\x60{3}\\s*$/i, '')\n    .trim();\n}\n\nreturn gates.map((item, i) => {\n  const gate = item.json;\n  const page = pages[i].json;\n  const agent = agents[i].json;\n\n  return {\n    json: {\n      ...page,\n      salvaged: false,\n      sections: [{ mdx: unfence(agent.output ?? agent.text ?? ''), anchor: 'content' }],\n      compiled_css: String(gate.css ?? ''),\n      css_bytes: Number(gate.cssBytes ?? 0),\n      warnings: gate.warnings ?? [],\n      mdx_ok: true,\n    },\n  };\n});"
       },
       "id": "a1e0c0de-Assemble Valid Page-code-4b1e-9f2a-8c3d5e6f7a8b",
       "name": "Assemble Valid Page",
@@ -201,7 +201,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// Both branches converge here. n8n may deliver one branch's items only, so this\n// node reads the batch from whichever branch actually produced output.\nconst validItems = $( 'Assemble Valid Page' ).all();\nconst salvagedItems = $( 'Salvage MDX Blocks' ).all();\nconst items = validItems.length ? validItems : salvagedItems;\n\nif (!items.length) {\n  throw new Error('No page output from either the valid or the salvage branch.');\n}\n\nreturn items.map((item) => ({ json: item.json }));"
+        "jsCode": "// Converging node for the MDX IF's two branches.\n//\n// It must ONLY read its own input. An earlier version reached back with\n// $('Salvage MDX Blocks').all(), which n8n resolves by THROWING when that node\n// sits on the untaken branch of the IF - so a site with perfectly valid MDX on\n// every page failed the run with \"Node 'Salvage MDX Blocks' hasn't been\n// executed\" (execution 120787). $input is always defined: it is whichever\n// branch actually produced output.\n//\n// Both branch assemblers emit one item per page, so passing $input through\n// unchanged preserves the fan-out.\nconst items = $input.all();\nif (!items.length) {\n  throw new Error('No page output reached the merge from either MDX branch.');\n}\n\nreturn items.map((item) => ({ json: item.json }));"
       },
       "id": "a1e0c0de-Merge Page Results-code-4b1e-9f2a-8c3d5e6f7a8b",
       "name": "Merge Page Results",
@@ -215,12 +215,12 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.SUPABASE_URL }}/rest/v1/sites?on_conflict=slug",
+        "url": "https://supabase.anagataitsolutions.in/rest/v1/sites?on_conflict=slug",
         "options": {},
         "sendBody": true,
         "specifyBody": "json",
         "bodyContentType": "json",
-        "jsonBody": "={\n  \"slug\": {{ JSON.stringify($json.site_slug) }},\n  \"domain\": {{ JSON.stringify($json.domain) }},\n  \"preview_subdomain\": {{ JSON.stringify($json.site_slug + '.' + ($env.SITES_BASE_DOMAIN || 'sites.anagataitsolutions.in')) }},\n  \"niche\": {{ JSON.stringify($('Normalize Site Request').first().json.niche) }},\n  \"city\": {{ JSON.stringify($json.city) }},\n  \"business_info\": {\n    \"name\": {{ JSON.stringify($json.business_name) }},\n    \"phone\": {{ JSON.stringify($json.phone) }},\n    \"email\": {{ JSON.stringify($('Normalize Site Request').first().json.email) }},\n    \"address\": {{ JSON.stringify($('Normalize Site Request').first().json.address) }},\n    \"services\": {{ JSON.stringify($json.services) }}\n  },\n  \"design_genome\": {{ JSON.stringify($json.genome) }},\n  \"navigation\": { \"items\": [] },\n  \"seo_global\": { \"default_title\": {{ JSON.stringify($json.business_name) }} },\n  \"status\": {{ JSON.stringify($('Normalize Site Request').first().json.status) }}\n}",
+        "jsonBody": "={\n  \"slug\": {{ JSON.stringify($json.site_slug) }},\n  \"domain\": {{ JSON.stringify($json.domain) }},\n  \"preview_subdomain\": {{ JSON.stringify($json.site_slug + '.' + 'sites.anagataitsolutions.in') }},\n  \"niche\": {{ JSON.stringify($('Normalize Site Request').first().json.niche) }},\n  \"city\": {{ JSON.stringify($json.city) }},\n  \"business_info\": {\n    \"name\": {{ JSON.stringify($json.business_name) }},\n    \"phone\": {{ JSON.stringify($json.phone) }},\n    \"email\": {{ JSON.stringify($('Normalize Site Request').first().json.email) }},\n    \"address\": {{ JSON.stringify($('Normalize Site Request').first().json.address) }},\n    \"services\": {{ JSON.stringify($json.services) }}\n  },\n  \"design_genome\": {{ JSON.stringify($json.genome) }},\n  \"navigation\": { \"items\": [] },\n  \"seo_global\": { \"default_title\": {{ JSON.stringify($json.business_name) }} },\n  \"status\": {{ JSON.stringify($('Normalize Site Request').first().json.status) }}\n}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -230,11 +230,11 @@
             },
             {
               "name": "apikey",
-              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+              "value": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc1OTQwMDc2MCwiZXhwIjo0OTE1MDc0MzYwLCJyb2xlIjoic2VydmljZV9yb2xlIn0.R9ki9FjWzHGqvV3DZg5vU5K6t7whABmwNfts9quEikk"
             },
             {
               "name": "Authorization",
-              "value": "=Bearer ={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+              "value": "=Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc1OTQwMDc2MCwiZXhwIjo0OTE1MDc0MzYwLCJyb2xlIjoic2VydmljZV9yb2xlIn0.R9ki9FjWzHGqvV3DZg5vU5K6t7whABmwNfts9quEikk"
             },
             {
               "name": "Prefer",
@@ -273,7 +273,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.SUPABASE_URL }}/rest/v1/pages?on_conflict=site_id,slug",
+        "url": "https://supabase.anagataitsolutions.in/rest/v1/pages?on_conflict=site_id,slug",
         "options": {},
         "sendBody": true,
         "specifyBody": "json",
@@ -288,11 +288,11 @@
             },
             {
               "name": "apikey",
-              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+              "value": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc1OTQwMDc2MCwiZXhwIjo0OTE1MDc0MzYwLCJyb2xlIjoic2VydmljZV9yb2xlIn0.R9ki9FjWzHGqvV3DZg5vU5K6t7whABmwNfts9quEikk"
             },
             {
               "name": "Authorization",
-              "value": "=Bearer ={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+              "value": "=Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc1OTQwMDc2MCwiZXhwIjo0OTE1MDc0MzYwLCJyb2xlIjoic2VydmljZV9yb2xlIn0.R9ki9FjWzHGqvV3DZg5vU5K6t7whABmwNfts9quEikk"
             },
             {
               "name": "Prefer",
@@ -317,7 +317,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.N8N_WEBHOOK_BASE }}/nextjs-blog-publisher-v1",
+        "url": "https://n8n.anagataitsolutions.in/webhook/nextjs-blog-publisher-v2",
         "options": {},
         "sendBody": true,
         "specifyBody": "json",
@@ -349,7 +349,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $env.ENGINE_URL }}/api/revalidate",
+        "url": "https://sites.anagataitsolutions.in/api/revalidate",
         "options": {},
         "sendBody": true,
         "specifyBody": "json",
@@ -364,7 +364,7 @@
             },
             {
               "name": "x-revalidate-secret",
-              "value": "={{ $env.ENGINE_REVALIDATE_SECRET }}"
+              "value": "ca712e56af21730785e69c1d2e38656c7b849511680a486865d0f6df2c8a852d"
             }
           ]
         }
@@ -629,7 +629,7 @@
         [
           {
             "node": "Page Architect Agent",
-            "type": "main",
+            "type": "ai_languageModel",
             "index": 0
           }
         ]
