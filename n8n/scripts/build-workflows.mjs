@@ -1450,11 +1450,14 @@ return [
     name: 'Revalidate Tenant Blog',
     method: 'POST',
     url: `${ENGINE_URL}/api/revalidate`,
-    jsonBody: `={
-  "domain": "{{ $json.domain }}",
-  "slug": "{{ $json.slug }}",
-  "type": "post"
-}`,
+    // JSON.stringify instead of interpolating {{ }} into quoted strings.
+    //
+    // This node runs after 'Upsert Post' (Prefer: return=representation), so $json
+    // is the stored post ROW: quoting raw values into JSON risked an invalid body
+    // whenever a slug or domain contained a quote, and the values are read by name
+    // so a missing field is obvious rather than silently empty. The previous body
+    // produced "Bad request - please check your parameters" (execution 120997).
+    jsonBody: `={{ JSON.stringify({ domain: $('Normalize Blog Request').first().json.domain, slug: $json.slug, type: 'post' }) }}`,
     headers: [
       { name: 'Content-Type', value: 'application/json' },
       { name: 'x-revalidate-secret', value: REVALIDATE_SECRET },

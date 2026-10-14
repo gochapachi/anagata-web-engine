@@ -445,7 +445,7 @@
         "sendBody": true,
         "specifyBody": "json",
         "bodyContentType": "json",
-        "jsonBody": "={\n  \"domain\": \"{{ $json.domain }}\",\n  \"slug\": \"{{ $json.slug }}\",\n  \"type\": \"post\"\n}",
+        "jsonBody": "={{ JSON.stringify({ domain: $('Normalize Blog Request').first().json.domain, slug: $json.slug, type: 'post' }) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
