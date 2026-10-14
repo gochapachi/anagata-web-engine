@@ -184,14 +184,8 @@ function httpNode({
   bodyContentType = 'json',
   options = {},
   executeOnce = false,
-}) {
-  const parameters = { method, url, options };
-
-  // Set when the caller wants exactly one HTTP call for the whole batch. Without
-  // it n8n repeats the request per incoming item, so a node placed after a
-  // fan-out fires N times - which is how a 5-page site tried to seed 10 blog
-  // articles and revalidate one tenant five times.
-  if (executeOnce) parameters.executeOnce = true;
+  }) {
+    const parameters = { method, url, options };
 
   if (queryParameters?.length) {
     parameters.sendQuery = true;
@@ -211,18 +205,22 @@ function httpNode({
   parameters.headerParameters = { parameters: headers ?? [] };
 
   return {
-    parameters,
-    id: id(`${name}-http`),
-    name,
-    type: 'n8n-nodes-base.httpRequest',
-    typeVersion: 4.2,
-    position: nextPosition(),
-    retryOnFail: true,
-    maxTries: 3,
-    waitBetweenTries: 2000,
-    onError: 'stopWorkflow',
-  };
-}
+      parameters,
+      id: id(`${name}-http`),
+      name,
+      type: 'n8n-nodes-base.httpRequest',
+      typeVersion: 4.2,
+      position: nextPosition(),
+      // TOP-LEVEL node property, NOT a field inside `parameters`. Putting it in
+      // parameters is silently ignored by n8n, which is what let 'Seed Cornerstone
+      // Blogs' fire once per page (5x) after a 5-page fan-out in execution 120885.
+      ...(executeOnce ? { executeOnce: true } : {}),
+      retryOnFail: true,
+      maxTries: 3,
+      waitBetweenTries: 2000,
+      onError: 'stopWorkflow',
+    };
+  }
 
 function ifNode({ name, leftValue, rightValue, operator = { type: 'boolean', operation: 'true' } }) {
   return {
@@ -653,7 +651,7 @@ return gates.map((item, i) => {
       ...page,
       salvaged: true,
       compile_error: String(gate.error ?? 'unknown compile error').slice(0, 500),
-      sections: [{ md: body.length > 120 ? body : '_Content for this page requires review._' }],
+      sections: [{ mdx: body.length > 120 ? body : '_Content for this page requires review._', anchor: 'content' }],
       compiled_css: '',
       mdx_ok: false,
     },
@@ -694,16 +692,58 @@ function unfence(raw) {
     .trim();
 }
 
+// True when an item is the agent's error envelope rather than real content.
+// The agent sets onError: 'continueRegularOutput', so an LLM failure arrives as
+// an ordinary item whose ONLY key is 'error'.
+function isErrorItem(json) {
+  if (!json || typeof json !== 'object') return false;
+  const keys = Object.keys(json);
+  return keys.length === 1 && keys[0] === 'error';
+}
+
+// An unrecoverable page becomes an inert 'requires review' placeholder rather
+// than a blank page that still reports published: true.
+//
+// The key MUST be 'mdx': PageSection is {block?, props?, mdx?, anchor?} and the
+// renderer reads only section.mdx (src/app/_sites/[domain]/[[...page]]/page.tsx).
+// Writing {md: ...} produced a section the renderer silently skipped, so a
+// salvaged page rendered empty while still being marked published.
+function salvage(blueprint, reason) {
+  return {
+    json: {
+      ...blueprint,
+      salvaged: true,
+      compile_error: String(reason).slice(0, 500),
+      sections: [{ mdx: '_Content for this page requires review._', anchor: 'content' }],
+      compiled_css: '',
+      mdx_ok: false,
+    },
+  };
+}
+
 return gates.map((item, i) => {
   const gate = item.json;
   const page = pages[i].json;
   const agent = agents[i].json;
 
-  return {
-    json: {
-      ...page,
-      salvaged: false,
-      sections: [{ mdx: unfence(agent.output ?? agent.text ?? ''), anchor: 'content' }],
+  if (isErrorItem(agent)) {
+      return salvage(page, agent.error ?? 'agent returned an error envelope');
+    }
+
+    if (gate.valid !== true) {
+      return salvage(page, gate.error ?? 'compile gate rejected this block');
+    }
+
+    const mdx = unfence(agent.output ?? agent.text ?? '');
+    if (!mdx.length) {
+      return salvage(page, 'agent returned empty content after unfencing');
+    }
+
+    return {
+      json: {
+        ...page,
+        salvaged: false,
+        sections: [{ mdx, anchor: 'content' }],
       compiled_css: String(gate.css ?? ''),
       css_bytes: Number(gate.cssBytes ?? 0),
       warnings: gate.warnings ?? [],
@@ -816,9 +856,9 @@ return pages.map((item) => {
     "description": {{ JSON.stringify($json.seo_description) }}
   },
   "sections": {{ JSON.stringify($json.sections) }},
-  "compiled_css": {{ JSON.stringify($json.compiled_css) }},
-  "published": true
-}`,
+    "compiled_css": {{ JSON.stringify($json.compiled_css) }},
+    "published": {{ $json.salvaged === true ? false : true }}
+  }`,
     headers: [
       { name: 'Content-Type', value: 'application/json' },
       { name: 'apikey', value: SUPABASE_KEY },
@@ -827,8 +867,72 @@ return pages.map((item) => {
     ],
   }),
 
-  httpNode({
-    name: 'Seed Cornerstone Blogs',
+  codeNode({
+      name: 'Decide Site Status',
+      jsCode: `// Downgrades a site to 'preview' when any page is salvage.
+  //
+  // The sites row is written BEFORE the pages exist, so 'Upsert Site' can only
+  // judge by whether a custom domain was supplied - which is why execution 120885
+  // stored status 'live' while two service pages were blank. This node runs after
+  // the pages are known and re-decides.
+  //
+  // It emits exactly ONE item, so the nodes after it act on the site as a whole
+  // rather than once per page.
+  const site = $('Upsert Site').first().json;
+  const request = $('Normalize Site Request').first().json;
+  const pages = $('Merge Page Results').all();
+
+  if (!pages.length) {
+    throw new Error('No pages reached the status decision.');
+  }
+
+  const salvaged = pages.filter((item) => item.json.salvaged === true);
+  // A site is only served publicly when every page has real content.
+  const healthy = salvaged.length === 0;
+
+  return [
+    {
+      json: {
+        site_id: site.id,
+        domain: request.domain,
+        slug: request.slug,
+        healthy,
+        pages_total: pages.length,
+        pages_salvaged: salvaged.length,
+        // A custom domain is a request, not a permission: it cannot make a site
+        // with blank pages live.
+        status: healthy && request.status === 'live' ? 'live' : 'preview',
+        salvaged_slugs: salvaged.map((item) => item.json.slug),
+      },
+    },
+  ];`,
+    }),
+
+    httpNode({
+      name: 'Finalize Site Status',
+      method: 'PATCH',
+      // Filtered PATCH so it touches exactly this tenant's row.
+      url: `${SUPABASE_REST}/sites?id=eq.{{ $json.site_id }}`,
+      jsonBody: `={ "status": {{ JSON.stringify($json.status) }} }`,
+      headers: [
+        { name: 'Content-Type', value: 'application/json' },
+        { name: 'apikey', value: SUPABASE_KEY },
+        { name: 'Authorization', value: `=Bearer ${SUPABASE_KEY}` },
+        { name: 'Prefer', value: 'return=representation' },
+      ],
+      executeOnce: true,
+    }),
+
+    ifNode({
+      name: 'Site Healthy?',
+      // Seeding cornerstone articles onto a site with blank pages would publish
+      // blog posts pointing at dead service pages.
+      leftValue: '={{ $json.healthy }}',
+      rightValue: '',
+    }),
+
+    httpNode({
+      name: 'Seed Cornerstone Blogs',
     method: 'POST',
     url: `${N8N_WEBHOOK_BASE}/nextjs-blog-publisher-v2`,
     // 'domain' is read from Normalize Site Request, NOT from $json: this node sits
@@ -1384,12 +1488,20 @@ const siteBuilderConnections = {
   'Assemble Valid Page': { main: [[edge('Merge Page Results')]] },
   'Salvage MDX Blocks': { main: [[edge('Merge Page Results')]] },
   'Merge Page Results': { main: [[edge('Upsert Site')]] },
-  'Upsert Site': { main: [[edge('Expand Pages For Upsert')]] },
-  'Expand Pages For Upsert': { main: [[edge('Upsert Pages')]] },
-  'Upsert Pages': { main: [[edge('Seed Cornerstone Blogs')]] },
-  'Seed Cornerstone Blogs': { main: [[edge('Revalidate Tenant')]] },
-  'Revalidate Tenant': { main: [[edge('Build Site Response')]] },
-  'Build Site Response': { main: [[edge('Respond - Site Created')]] },
+    'Upsert Site': { main: [[edge('Expand Pages For Upsert')]] },
+    'Expand Pages For Upsert': { main: [[edge('Upsert Pages')]] },
+    // The site's status is decided only AFTER the pages are known, and blog seeding
+    // is gated on page health. Branch 0 (healthy) seeds; branch 1 (unhealthy) skips
+    // seeding and goes straight to revalidation.
+    'Upsert Pages': { main: [[edge('Decide Site Status')]] },
+    'Decide Site Status': { main: [[edge('Finalize Site Status')]] },
+    'Finalize Site Status': { main: [[edge('Site Healthy?')]] },
+    'Site Healthy?': {
+      main: [[edge('Seed Cornerstone Blogs')], [edge('Revalidate Tenant')]],
+    },
+    'Seed Cornerstone Blogs': { main: [[edge('Revalidate Tenant')]] },
+    'Revalidate Tenant': { main: [[edge('Build Site Response')]] },
+    'Build Site Response': { main: [[edge('Respond - Site Created')]] },
   'Model - Gemini Argon': {
     ai_languageModel: [[edge('Page Architect Agent', 0, 'ai_languageModel')]],
   },
@@ -1511,6 +1623,20 @@ for (const [file, definition] of [
     }
   }
   console.log(`[ok] ${file}: agent prompts are expressions (leading '=')`);
+
+  // executeOnce is a TOP-LEVEL node property. Placed inside `parameters` n8n
+  // ignores it silently, and a node after a fan-out then fires once per item -
+  // which is how 'Seed Cornerstone Blogs' fired 5x for a 5-page site
+  // (execution 120885) and would have seeded 10 articles instead of 2.
+  for (const node of definition.nodes) {
+    if (node.parameters?.executeOnce !== undefined) {
+      throw new Error(
+        `${file}: "${node.name}" has executeOnce inside parameters - n8n ignores it there; ` +
+          'it must be a top-level node property'
+      );
+    }
+  }
+  console.log(`[ok] ${file}: executeOnce is never misplaced inside parameters`);
 
   // An HTTP body may only read a field from ITS OWN input item ($json). Reading
   // $json.<field> when the predecessor does not emit that field evaluates to the

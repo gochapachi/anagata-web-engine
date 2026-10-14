@@ -173,7 +173,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// The compile gate rejected this page's MDX. This node does NOT block the run: a\n// tenant with one imperfect page is better than no tenant at all, and the site\n// is created with status 'preview' so nothing goes public unreviewed.\n//\n// What it does guarantee: the page is stored as PLAIN TEXT, never as broken JSX.\n// Broken JSX in the database would 500 a live page later.\n//\n// It maps over EVERY page, matching the one-row-per-page contract of\n// 'Assemble Valid Page'. Using .first() here would salvage a single page and\n// silently discard the other four.\nconst gates = $input.all();\nconst pages = $('Build Page Blueprints').all();\nconst agents = $('Page Architect Agent').all();\n\nif (!gates.length) throw new Error('No gate results on the salvage branch.');\n\n// Strips the fence and neutralises anything that looks like JSX so the stored\n// content is inert markdown rather than markup the renderer might execute.\nfunction inert(raw) {\n  return String(raw ?? '')\n    .replace(/^\\s*\\x60{3}mdx\\s*/i, '')\n    .replace(/\\s*\\x60{3}\\s*$/i, '')\n    .replace(/<\\/?[A-Za-z][^>]*>/g, '')\n    .replace(/\\{\\{?[\\s\\S]*?\\}\\}?/g, '')\n    .trim();\n}\n\nreturn gates.map((item, i) => {\n  const gate = item.json;\n  const page = pages[i]?.json ?? {};\n  const agent = agents[i]?.json ?? {};\n  const body = inert(agent.output ?? agent.text ?? '');\n\n  return {\n    json: {\n      ...page,\n      salvaged: true,\n      compile_error: String(gate.error ?? 'unknown compile error').slice(0, 500),\n      sections: [{ md: body.length > 120 ? body : '_Content for this page requires review._' }],\n      compiled_css: '',\n      mdx_ok: false,\n    },\n  };\n});"
+        "jsCode": "// The compile gate rejected this page's MDX. This node does NOT block the run: a\n// tenant with one imperfect page is better than no tenant at all, and the site\n// is created with status 'preview' so nothing goes public unreviewed.\n//\n// What it does guarantee: the page is stored as PLAIN TEXT, never as broken JSX.\n// Broken JSX in the database would 500 a live page later.\n//\n// It maps over EVERY page, matching the one-row-per-page contract of\n// 'Assemble Valid Page'. Using .first() here would salvage a single page and\n// silently discard the other four.\nconst gates = $input.all();\nconst pages = $('Build Page Blueprints').all();\nconst agents = $('Page Architect Agent').all();\n\nif (!gates.length) throw new Error('No gate results on the salvage branch.');\n\n// Strips the fence and neutralises anything that looks like JSX so the stored\n// content is inert markdown rather than markup the renderer might execute.\nfunction inert(raw) {\n  return String(raw ?? '')\n    .replace(/^\\s*\\x60{3}mdx\\s*/i, '')\n    .replace(/\\s*\\x60{3}\\s*$/i, '')\n    .replace(/<\\/?[A-Za-z][^>]*>/g, '')\n    .replace(/\\{\\{?[\\s\\S]*?\\}\\}?/g, '')\n    .trim();\n}\n\nreturn gates.map((item, i) => {\n  const gate = item.json;\n  const page = pages[i]?.json ?? {};\n  const agent = agents[i]?.json ?? {};\n  const body = inert(agent.output ?? agent.text ?? '');\n\n  return {\n    json: {\n      ...page,\n      salvaged: true,\n      compile_error: String(gate.error ?? 'unknown compile error').slice(0, 500),\n      sections: [{ mdx: body.length > 120 ? body : '_Content for this page requires review._', anchor: 'content' }],\n      compiled_css: '',\n      mdx_ok: false,\n    },\n  };\n});"
       },
       "id": "b295c5c8-3d77-4060-8da7-51d4707ed794",
       "name": "Salvage MDX Blocks",
@@ -187,7 +187,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// Turns each validated MDX block into a pages-row shape: ONE ROW PER PAGE.\n//\n// Why a map and not .first(): Code nodes preserve item order, and the agent\n// fans out one item per blueprint, so the gate results, the blueprints and the\n// agent outputs all line up by index. Using .first() here collapsed a\n// five-page site into a single page - execution 120787 measured exactly that\n// (Build Page Blueprints 5 items in, Assemble Valid Page 1 item out), which is\n// how a tenant ends up with one page instead of five.\nconst gates = $input.all();\nconst pages = $('Build Page Blueprints').all();\nconst agents = $('Page Architect Agent').all();\n\nif (!gates.length) throw new Error('Compile gate returned no items.');\n\nif (pages.length !== gates.length || agents.length !== gates.length) {\n  throw new Error(\n    'Fan-out counts diverged (gate=' + gates.length + ' pages=' + pages.length +\n    ' agent=' + agents.length + '). Refusing to zip by index - pages would be mis-paired.'\n  );\n}\n\n// Unwraps the fenced mdx block the agent is instructed to emit. Backticks are\n// escaped below because this block lives inside a template literal in the\n// generator - an unescaped one terminates the string and breaks the build.\nfunction unfence(raw) {\n  return String(raw ?? '')\n    .replace(/^\\s*\\x60{3}mdx\\s*/i, '')\n    .replace(/\\s*\\x60{3}\\s*$/i, '')\n    .trim();\n}\n\nreturn gates.map((item, i) => {\n  const gate = item.json;\n  const page = pages[i].json;\n  const agent = agents[i].json;\n\n  return {\n    json: {\n      ...page,\n      salvaged: false,\n      sections: [{ mdx: unfence(agent.output ?? agent.text ?? ''), anchor: 'content' }],\n      compiled_css: String(gate.css ?? ''),\n      css_bytes: Number(gate.cssBytes ?? 0),\n      warnings: gate.warnings ?? [],\n      mdx_ok: true,\n    },\n  };\n});"
+        "jsCode": "// Turns each validated MDX block into a pages-row shape: ONE ROW PER PAGE.\n//\n// Why a map and not .first(): Code nodes preserve item order, and the agent\n// fans out one item per blueprint, so the gate results, the blueprints and the\n// agent outputs all line up by index. Using .first() here collapsed a\n// five-page site into a single page - execution 120787 measured exactly that\n// (Build Page Blueprints 5 items in, Assemble Valid Page 1 item out), which is\n// how a tenant ends up with one page instead of five.\nconst gates = $input.all();\nconst pages = $('Build Page Blueprints').all();\nconst agents = $('Page Architect Agent').all();\n\nif (!gates.length) throw new Error('Compile gate returned no items.');\n\nif (pages.length !== gates.length || agents.length !== gates.length) {\n  throw new Error(\n    'Fan-out counts diverged (gate=' + gates.length + ' pages=' + pages.length +\n    ' agent=' + agents.length + '). Refusing to zip by index - pages would be mis-paired.'\n  );\n}\n\n// Unwraps the fenced mdx block the agent is instructed to emit. Backticks are\n// escaped below because this block lives inside a template literal in the\n// generator - an unescaped one terminates the string and breaks the build.\nfunction unfence(raw) {\n  return String(raw ?? '')\n    .replace(/^\\s*\\x60{3}mdx\\s*/i, '')\n    .replace(/\\s*\\x60{3}\\s*$/i, '')\n    .trim();\n}\n\n// True when an item is the agent's error envelope rather than real content.\n// The agent sets onError: 'continueRegularOutput', so an LLM failure arrives as\n// an ordinary item whose ONLY key is 'error'.\nfunction isErrorItem(json) {\n  if (!json || typeof json !== 'object') return false;\n  const keys = Object.keys(json);\n  return keys.length === 1 && keys[0] === 'error';\n}\n\n// An unrecoverable page becomes an inert 'requires review' placeholder rather\n// than a blank page that still reports published: true.\n//\n// The key MUST be 'mdx': PageSection is {block?, props?, mdx?, anchor?} and the\n// renderer reads only section.mdx (src/app/_sites/[domain]/[[...page]]/page.tsx).\n// Writing {md: ...} produced a section the renderer silently skipped, so a\n// salvaged page rendered empty while still being marked published.\nfunction salvage(blueprint, reason) {\n  return {\n    json: {\n      ...blueprint,\n      salvaged: true,\n      compile_error: String(reason).slice(0, 500),\n      sections: [{ mdx: '_Content for this page requires review._', anchor: 'content' }],\n      compiled_css: '',\n      mdx_ok: false,\n    },\n  };\n}\n\nreturn gates.map((item, i) => {\n  const gate = item.json;\n  const page = pages[i].json;\n  const agent = agents[i].json;\n\n  if (isErrorItem(agent)) {\n      return salvage(page, agent.error ?? 'agent returned an error envelope');\n    }\n\n    if (gate.valid !== true) {\n      return salvage(page, gate.error ?? 'compile gate rejected this block');\n    }\n\n    const mdx = unfence(agent.output ?? agent.text ?? '');\n    if (!mdx.length) {\n      return salvage(page, 'agent returned empty content after unfencing');\n    }\n\n    return {\n      json: {\n        ...page,\n        salvaged: false,\n        sections: [{ mdx, anchor: 'content' }],\n      compiled_css: String(gate.css ?? ''),\n      css_bytes: Number(gate.cssBytes ?? 0),\n      warnings: gate.warnings ?? [],\n      mdx_ok: true,\n    },\n  };\n});"
       },
       "id": "3bca11d6-2bf2-4c96-8cf0-3ca3ca4a1337",
       "name": "Assemble Valid Page",
@@ -278,7 +278,7 @@
         "sendBody": true,
         "specifyBody": "json",
         "bodyContentType": "json",
-        "jsonBody": "={\n  \"site_id\": \"{{ $json.site_id }}\",\n  \"slug\": {{ JSON.stringify($json.slug) }},\n  \"title\": {{ JSON.stringify($json.title) }},\n  \"seo_meta\": {\n    \"title\": {{ JSON.stringify($json.title + ' | ' + $json.business_name) }},\n    \"description\": {{ JSON.stringify($json.seo_description) }}\n  },\n  \"sections\": {{ JSON.stringify($json.sections) }},\n  \"compiled_css\": {{ JSON.stringify($json.compiled_css) }},\n  \"published\": true\n}",
+        "jsonBody": "={\n  \"site_id\": \"{{ $json.site_id }}\",\n  \"slug\": {{ JSON.stringify($json.slug) }},\n  \"title\": {{ JSON.stringify($json.title) }},\n  \"seo_meta\": {\n    \"title\": {{ JSON.stringify($json.title + ' | ' + $json.business_name) }},\n    \"description\": {{ JSON.stringify($json.seo_description) }}\n  },\n  \"sections\": {{ JSON.stringify($json.sections) }},\n    \"compiled_css\": {{ JSON.stringify($json.compiled_css) }},\n    \"published\": {{ $json.salvaged === true ? false : true }}\n  }",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -316,10 +316,100 @@
     },
     {
       "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Downgrades a site to 'preview' when any page is salvage.\n  //\n  // The sites row is written BEFORE the pages exist, so 'Upsert Site' can only\n  // judge by whether a custom domain was supplied - which is why execution 120885\n  // stored status 'live' while two service pages were blank. This node runs after\n  // the pages are known and re-decides.\n  //\n  // It emits exactly ONE item, so the nodes after it act on the site as a whole\n  // rather than once per page.\n  const site = $('Upsert Site').first().json;\n  const request = $('Normalize Site Request').first().json;\n  const pages = $('Merge Page Results').all();\n\n  if (!pages.length) {\n    throw new Error('No pages reached the status decision.');\n  }\n\n  const salvaged = pages.filter((item) => item.json.salvaged === true);\n  // A site is only served publicly when every page has real content.\n  const healthy = salvaged.length === 0;\n\n  return [\n    {\n      json: {\n        site_id: site.id,\n        domain: request.domain,\n        slug: request.slug,\n        healthy,\n        pages_total: pages.length,\n        pages_salvaged: salvaged.length,\n        // A custom domain is a request, not a permission: it cannot make a site\n        // with blank pages live.\n        status: healthy && request.status === 'live' ? 'live' : 'preview',\n        salvaged_slugs: salvaged.map((item) => item.json.slug),\n      },\n    },\n  ];"
+      },
+      "id": "5a956ef1-05e5-45c4-8a71-6fb1ba4257a8",
+      "name": "Decide Site Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3380,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://supabase.anagataitsolutions.in/rest/v1/sites?id=eq.{{ $json.site_id }}",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "bodyContentType": "json",
+        "jsonBody": "={ \"status\": {{ JSON.stringify($json.status) }} }",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc1OTQwMDc2MCwiZXhwIjo0OTE1MDc0MzYwLCJyb2xlIjoic2VydmljZV9yb2xlIn0.R9ki9FjWzHGqvV3DZg5vU5K6t7whABmwNfts9quEikk"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc1OTQwMDc2MCwiZXhwIjo0OTE1MDc0MzYwLCJyb2xlIjoic2VydmljZV9yb2xlIn0.R9ki9FjWzHGqvV3DZg5vU5K6t7whABmwNfts9quEikk"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        }
+      },
+      "id": "4db76bfb-fa23-4846-8a4f-2bfa81a8551b",
+      "name": "Finalize Site Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3640,
+        0
+      ],
+      "executeOnce": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "stopWorkflow"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "condition-1",
+              "leftValue": "={{ $json.healthy }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "29f34e2d-33f1-4f7c-8f0f-863fb02a51c7",
+      "name": "Site Healthy?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        3900,
+        0
+      ]
+    },
+    {
+      "parameters": {
         "method": "POST",
         "url": "https://n8n.anagataitsolutions.in/webhook/nextjs-blog-publisher-v2",
         "options": {},
-        "executeOnce": true,
         "sendBody": true,
         "specifyBody": "json",
         "bodyContentType": "json",
@@ -339,9 +429,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3380,
+        4160,
         0
       ],
+      "executeOnce": true,
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 2000,
@@ -352,7 +443,6 @@
         "method": "POST",
         "url": "https://sites.anagataitsolutions.in/api/revalidate",
         "options": {},
-        "executeOnce": true,
         "sendBody": true,
         "specifyBody": "json",
         "bodyContentType": "json",
@@ -376,9 +466,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3640,
+        4420,
         0
       ],
+      "executeOnce": true,
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 2000,
@@ -394,7 +485,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3900,
+        4680,
         0
       ]
     },
@@ -409,7 +500,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        4160,
+        4940,
         0
       ]
     },
@@ -586,7 +677,47 @@
       "main": [
         [
           {
+            "node": "Decide Site Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decide Site Status": {
+      "main": [
+        [
+          {
+            "node": "Finalize Site Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finalize Site Status": {
+      "main": [
+        [
+          {
+            "node": "Site Healthy?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Site Healthy?": {
+      "main": [
+        [
+          {
             "node": "Seed Cornerstone Blogs",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Revalidate Tenant",
             "type": "main",
             "index": 0
           }
