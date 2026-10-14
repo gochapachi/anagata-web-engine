@@ -6,10 +6,15 @@ import type { NextConfig } from 'next';
  * output: 'standalone' keeps the production container ~90MB and lets Coolify
  * run `node server.js` directly instead of a full `next start` toolchain.
  *
- * The `/_sites/[domain]` branch is never reachable directly from a browser
- * because middleware rewrites every public request into it; `_sites` is a
- * private route segment (leading underscore = opted out of routing).
- */
+ * The `/sites/[domain]` branch is never reachable directly from a browser
+  * because middleware rewrites every public request into it.
+  *
+  * WHY NOT `_sites`: an App Router folder whose name starts with `_` is a PRIVATE
+  * route segment - Next.js excludes it from routing entirely, and a middleware
+  * rewrite cannot reach it either. `src/app/_sites/[domain]` produced no route at
+  * all (the build listed only /, /_not-found, /api/* and /robots.txt), so every
+  * tenant page 404'd no matter what the database held. The folder is `sites/`.
+  */
 const nextConfig: NextConfig = {
   output: 'standalone',
   poweredByHeader: false,

@@ -3,7 +3,7 @@
  *
  * Every public request arrives with a Host header for a client domain
  * (e.g. thecrowndentalclinic.com). Middleware rewrites it into the private
- * `/_sites/[domain]/...` route segment so one container serves all tenants.
+ * `/sites/[domain]/...` route segment so one container serves all tenants.
  *
  * Pure functions only - no Next.js imports - so they are unit-testable.
  */
@@ -48,18 +48,18 @@ export function previewSubdomainFor(slug: string): string {
 
 /**
  * Maps a public path to the private tenant route segment.
- * `/` -> `/_sites/<host>` and `/blog/x?y=1` -> `/_sites/<host>/blog/x`
+ * `/` -> `/sites/<host>` and `/blog/x?y=1` -> `/sites/<host>/blog/x`
  * (the query string is appended by the caller, which owns the URL object).
  */
 export function resolveInternalRewritePath(host: string, pathname: string): string {
   const cleanHost = normalizeHost(host);
   const cleanPath = pathname === '/' ? '' : pathname.startsWith('/') ? pathname : `/${pathname}`;
-  return `/_sites/${cleanHost}${cleanPath}`;
+  return `/sites/${cleanHost}${cleanPath}`;
 }
 
-/** Extracts the tenant host back out of a /_sites/<host>/... path. */
+/** Extracts the tenant host back out of a /sites/<host>/... path. */
 export function tenantFromInternalPath(pathname: string): { host: string; rest: string } | null {
-  const match = /^\/_sites\/([^/]+)(\/.*)?$/.exec(pathname);
+  const match = /^\/sites\/([^/]+)(\/.*)?$/.exec(pathname);
   if (!match) return null;
   return { host: decodeURIComponent(match[1]), rest: match[2] ?? '/' };
 }

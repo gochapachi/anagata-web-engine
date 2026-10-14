@@ -6,8 +6,8 @@ import { renderMdx, cssForMdxSources } from '@/components/mdx/SafeMdxRenderer';
 import type { PageRow } from '@/lib/types';
 
 /**
- * Tenant page renderer: `/_sites/[domain]` for the home page and
- * `/_sites/[domain]/[page]` for everything else.
+ * Tenant page renderer: `/sites/[domain]` for the home page and
+ * `/sites/[domain]/[page]` for everything else.
  *
  * A page row carries an ordered `sections` array. Each section is EITHER a
  * registry block (`{ block, props }`) OR AI-authored MDX (`{ mdx }`). Rendering

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 /**
  * Root layout. Required by the App Router even though every real page is a
- * tenant under `_sites/[domain]`.
+ * tenant under `sites/[domain]`.
  *
  * Tenant-specific <html> attributes (lang, per-site meta) are set by the tenant
  * layout via hoisted tags rather than here, because this layout cannot know

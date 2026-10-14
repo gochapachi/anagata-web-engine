@@ -51,6 +51,19 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules/tailwindcss/theme.cs
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/tailwindcss/preflight.css ./node_modules/tailwindcss/preflight.css
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/tailwindcss/utilities.css ./node_modules/tailwindcss/utilities.css
 
+# lightningcss is a NATIVE addon, and its platform package must match the RUNNER's
+# libc. This image is alpine (musl), so Tailwind's compile step needs
+# lightningcss-linux-x64-musl. Without it every /api/compile call fails with:
+#   "Cannot find module '../lightningcss.linux-x64-musl.node'"
+# which made the compile gate return 422 for every page, so the workflow stored
+# compiled_css as an empty string and every tenant page rendered unstyled
+# (16px body-font H1, no brand button, no spacing).
+#
+# Copied from the builder rather than the host so the binary always matches the
+# architecture and libc the build actually resolved.
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/lightningcss ./node_modules/lightningcss
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/lightningcss-linux-x64-musl ./node_modules/lightningcss-linux-x64-musl
+
 # Persistent ISR cache: mounted at runtime so cached tenant HTML survives a
 # container restart and keeps serving while Supabase is unreachable.
 RUN mkdir -p /app/.next/cache && chown -R nextjs:nodejs /app/.next/cache

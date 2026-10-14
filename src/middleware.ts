@@ -5,13 +5,13 @@ import { normalizeHost, resolveInternalRewritePath, isEngineHost } from '@/lib/d
  * Multi-tenant host router. One container serves every client domain.
  *
  * Requests for a TENANT host are internally rewritten to the private
- * `/_sites/[domain]/...` segment, so the visitor's address bar keeps the client's
+ * `/sites/[domain]/...` segment, so the visitor's address bar keeps the client's
  * own domain while the App Router resolves the tenant from the path.
  *
  * Requests for an ENGINE host (localhost, a bare IP, the engine's own domain)
  * are passed through untouched so the operator page, `/robots.txt` and internal
  * routes resolve normally. Without this the engine's own homepage rewrites to
- * `/_sites/localhost`, which is not a tenant, and 404s.
+ * `/sites/localhost`, which is not a tenant, and 404s.
  */
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
@@ -24,7 +24,7 @@ export function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
 
   // Explanation: this is the engine's own multi-tenant surface, not a tenant page.
-  if (pathname.startsWith('/_sites')) {
+  if (pathname.startsWith('/sites')) {
     return NextResponse.next();
   }
 

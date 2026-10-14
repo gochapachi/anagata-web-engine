@@ -33,18 +33,18 @@ describe('normalizeHost', () => {
 describe('resolveInternalRewritePath', () => {
   it('maps the root path with no trailing slash', () => {
     expect(resolveInternalRewritePath('thecrowndentalclinic.com', '/')).toBe(
-      '/_sites/thecrowndentalclinic.com'
+      '/sites/thecrowndentalclinic.com'
     );
   });
 
   it('maps nested paths verbatim', () => {
     expect(resolveInternalRewritePath('thecrowndentalclinic.com', '/blog/rct-cost')).toBe(
-      '/_sites/thecrowndentalclinic.com/blog/rct-cost'
+      '/sites/thecrowndentalclinic.com/blog/rct-cost'
     );
   });
 
   it('normalizes a host that still carries www. or a port', () => {
-    expect(resolveInternalRewritePath('www.x.com:8080', '/about')).toBe('/_sites/x.com/about');
+    expect(resolveInternalRewritePath('www.x.com:8080', '/about')).toBe('/sites/x.com/about');
   });
 });
 

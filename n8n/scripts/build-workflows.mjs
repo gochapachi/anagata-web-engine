@@ -705,7 +705,7 @@ function isErrorItem(json) {
 // than a blank page that still reports published: true.
 //
 // The key MUST be 'mdx': PageSection is {block?, props?, mdx?, anchor?} and the
-// renderer reads only section.mdx (src/app/_sites/[domain]/[[...page]]/page.tsx).
+// renderer reads only section.mdx (src/app/sites/[domain]/[[...page]]/page.tsx).
 // Writing {md: ...} produced a section the renderer silently skipped, so a
 // salvaged page rendered empty while still being marked published.
 function salvage(blueprint, reason) {
@@ -910,9 +910,11 @@ return pages.map((item) => {
 
     httpNode({
       name: 'Finalize Site Status',
-      method: 'PATCH',
-      // Filtered PATCH so it touches exactly this tenant's row.
-      url: `${SUPABASE_REST}/sites?id=eq.{{ $json.site_id }}`,
+          method: 'PATCH',
+          // The URL needs the leading '=' too: without it n8n treats the {{ }} as
+          // literal text and requests /sites?id=eq.%7B%7B...%7D%7D, which PostgREST
+          // rejects with 400. Only fields that ARE expressions need it.
+          url: `=${SUPABASE_REST}/sites?id=eq.{{ $json.site_id }}`,
       jsonBody: `={ "status": {{ JSON.stringify($json.status) }} }`,
       headers: [
         { name: 'Content-Type', value: 'application/json' },

@@ -46,15 +46,15 @@ export async function POST(req: NextRequest) {
   if (type === 'post' && slug) {
     revalidateTag(postTag(domain, slug));
     invalidated.push(postTag(domain, slug));
-    revalidatePath(`/_sites/${domain}/blog/${slug}`);
-    revalidatePath(`/_sites/${domain}/blog`);
-    invalidated.push(`/_sites/${domain}/blog/${slug}`, `/_sites/${domain}/blog`);
+    revalidatePath(`/sites/${domain}/blog/${slug}`);
+    revalidatePath(`/sites/${domain}/blog`);
+    invalidated.push(`/sites/${domain}/blog/${slug}`, `/sites/${domain}/blog`);
   }
 
   // Pages and the sitemap are always refreshed: a new post changes the sitemap,
   // and a page edit must not require a second call.
-  revalidatePath(`/_sites/${domain}`, 'layout');
-  invalidated.push(`/_sites/${domain}`);
+  revalidatePath(`/sites/${domain}`, 'layout');
+  invalidated.push(`/sites/${domain}`);
 
   return NextResponse.json({ revalidated: true, domain, type, slug: slug ?? null, invalidated });
 }
