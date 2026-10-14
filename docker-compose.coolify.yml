@@ -1,0 +1,76 @@
+# Coolify deployment for anagata-web-engine
+#
+# Apply ONE service on the VPS (213.199.62.248). Do not create a service per
+# client: a single container serves every tenant, resolved by Host header.
+#
+# Coolify-specific notes:
+#   * Traefik terminates TLS. Wildcards need a DNS-01 challenge; a custom-domain
+#     per tenant needs only an A record pointed at the VPS.
+#   * Do NOT add a per-site FQDN to this application via the Coolify API. That
+#     rewrites `fqdn` and restarts the container, taking every tenant down for
+#     ~5s. Add tenant domains to the Traefik dynamic file instead (below), which
+#     Traefik hot-reloads with zero downtime.
+#
+# ---- Traefik dynamic file (zero-downtime tenant domains) -------------------
+# Write to /data/coolify/proxy/dynamic/anagata-tenants.yaml on the VPS:
+#
+#   http:
+#     routers:
+#       tenant-thecrowndentalclinic:
+#         rule: Host(`thecrowndentalclinic.com`) || Host(`www.thecrowndentalclinic.com`)
+#         entryPoints: [https]
+#         service: anagata-web-engine
+#         tls:
+#           certResolver: letsencrypt
+#     services:
+#       anagata-web-engine:
+#         loadBalancer:
+#           servers:
+#             - url: http://anagata-web-engine:3000
+#
+# Traefik watches that directory; adding a router needs no restart.
+
+services:
+  anagata-web-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      ENGINE_REVALIDATE_SECRET: ${ENGINE_REVALIDATE_SECRET}
+      ENGINE_COMPILE_SECRET: ${ENGINE_COMPILE_SECRET:-}
+      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-}
+      SITES_BASE_DOMAIN: ${SITES_BASE_DOMAIN:-sites.anagataitsolutions.in}
+      NODE_ENV: production
+      # The request-time Tailwind compiler needs headroom; 2GB is ample for a
+      # 50-tenant fleet because compiled CSS is cached in the row, not re-run.
+      NODE_OPTIONS: --max-old-space-size=2048
+    volumes:
+      # Persistent ISR cache. This is the Supabase-outage fallback: cached HTML
+      # for all tenants keeps serving from disk even if Postgres is down.
+      - anagata-isr-cache:/app/.next/cache
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          # A single Next.js standalone container for ~50 tenants.
+          memory: 1g
+    labels:
+      # Coolify/Traefik wiring. `coolify.managed` keeps Coolify from pruning it.
+      - traefik.enable=true
+      - traefik.http.services.anagata-web-engine.loadbalancer.server.port=3000
+      - coolify.managed=true
+
+volumes:
+  anagata-isr-cache:

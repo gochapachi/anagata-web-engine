@@ -1,0 +1,623 @@
+{
+  "name": "Anagata Next.js Multi-Tenant Site Builder (v1)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "nextjs-site-generator-v1",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a1e0c0de-Webhook - Create Next.js Site-wh-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "Webhook - Create Next.js Site",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "nextjs-site-generator-v1"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Validates the request and derives every identifier the rest of the run needs.\n// Throws early: a malformed request must fail in 1 second, not after 20 minutes\n// of LLM spend.\nconst body = $input.first().json.body ?? $input.first().json;\n\nconst required = ['business_name', 'niche', 'city', 'phone', 'services'];\nconst missing = required.filter((field) => {\n  const value = body[field];\n  if (Array.isArray(value)) return value.length === 0;\n  return value === undefined || value === null || String(value).trim() === '';\n});\nif (missing.length) {\n  throw new Error('Missing required field(s): ' + missing.join(', '));\n}\n\nconst slugify = (value) =>\n  String(value)\n    .toLowerCase()\n    .normalize('NFKD')\n    .replace(/[^a-z0-9]+/g, '-')\n    .replace(/^-+|-+$/g, '')\n    .slice(0, 48);\n\nconst slug = slugify(body.slug || body.business_name);\nif (!slug) throw new Error('Could not derive a slug from business_name.');\n\nconst domain = body.custom_domain\n  ? String(body.custom_domain).toLowerCase().replace(/^https?:\\/\\//, '').replace(/\\/.*$/, '').replace(/^www\\./, '').trim()\n  : slug + '.' + ($env.SITES_BASE_DOMAIN || 'sites.anagataitsolutions.in');\n\nconst services = (Array.isArray(body.services) ? body.services : String(body.services).split(','))\n  .map((service) => String(service).trim())\n  .filter(Boolean);\n\nif (!services.length) throw new Error('services must contain at least one entry.');\n\nreturn [\n  {\n    json: {\n      run_id: slug + '-' + Date.now().toString(36),\n      slug,\n      domain,\n      preview_subdomain: slug + '.' + ($env.SITES_BASE_DOMAIN || 'sites.anagataitsolutions.in'),\n      niche: String(body.niche).trim(),\n      city: String(body.city).trim(),\n      business_name: String(body.business_name).trim(),\n      phone: String(body.phone).trim(),\n      whatsapp: body.whatsapp ? String(body.whatsapp).trim() : null,\n      email: body.email ? String(body.email).trim() : null,\n      address: body.address ? String(body.address).trim() : null,\n      services,\n      // Optional: an existing site to draw tone/structure cues from.\n      reference_url: body.reference_url ? String(body.reference_url) : null,\n      brand_notes: body.brand_notes ? String(body.brand_notes) : null,\n      doctor_or_lead: body.doctor_or_lead ?? null,\n      status: body.custom_domain ? 'live' : 'preview',\n      started_at: new Date().toISOString(),\n    },\n  },\n];"
+      },
+      "id": "a1e0c0de-Normalize Site Request-code-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "Normalize Site Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.ENGINE_URL }}/api/genome",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "bodyContentType": "json",
+        "jsonBody": "={\n  \"seed\": {{ JSON.stringify($json.slug) }},\n  \"niche\": {{ JSON.stringify($json.niche) }},\n  \"city\": {{ JSON.stringify($json.city) }},\n  \"useLedger\": true\n}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        }
+      },
+      "id": "a1e0c0de-Get Design Genome-http-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "Get Design Genome",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        520,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "stopWorkflow"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Expands ONE request item into ONE item per page to generate.\n//\n// Every item carries the genome so the page agent writes to the tenant's actual\n// structure (grid, rhythm, shell) rather than a generic layout. This is where\n// \"the AI writes a bespoke site\" is actually wired: the genome constrains the\n// design, the agent fills it.\nconst request = $('Normalize Site Request').first().json;\nconst genomeResponse = $input.first().json;\n\nif (!genomeResponse || !genomeResponse.genome) {\n  throw new Error('Design genome service returned no genome: ' + JSON.stringify(genomeResponse).slice(0, 400));\n}\nif (genomeResponse.similarity_ok === false) {\n  // The engine reports this only when its ledger read failed. Publishing anyway\n  // would risk shipping a duplicate-looking site, which is the one thing this\n  // system exists to prevent.\n  throw new Error('Anti-sameness check failed: ' + JSON.stringify(genomeResponse.similarity ?? {}).slice(0, 300));\n}\n\nconst genome = genomeResponse.genome;\nconst profile = genomeResponse.profile ?? genome._profile ?? {};\n\nconst slugify = (value) =>\n  String(value).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);\n\nconst lead = request.doctor_or_lead ?? null;\nconst leadLine = lead && lead.name ? lead.name + (lead.credentials ? ', ' + lead.credentials : '') : null;\n\nconst sharedBrief = [\n  'BUSINESS: ' + request.business_name,\n  'NICHE: ' + request.niche,\n  'CITY: ' + request.city,\n  'PHONE: ' + request.phone,\n  request.address ? 'ADDRESS: ' + request.address : null,\n  'SERVICES: ' + request.services.join(' | '),\n  leadLine ? 'NAMED PROFESSIONAL (use for E-E-A-T, never invent other people): ' + leadLine : null,\n  request.reference_url ? 'REFERENCE SITE (tone only, never copy text): ' + request.reference_url : null,\n  request.brand_notes ? 'BRAND NOTES: ' + request.brand_notes : null,\n].filter(Boolean).join('\\n');\n\nconst designBrief = [\n  'SHELL: ' + genome.shell_archetype,\n  'NAV: ' + genome.nav_topology,\n  'COLOUR MODE: ' + genome.color_mode,\n  'SECTION RHYTHM: ' + genome.rhythm,\n  'GRID: ' + (profile.grid ?? 'unspecified'),\n  'DENSITY: ' + (profile.density ?? 'balanced'),\n  'SURFACE: ' + (profile.surface_treatment ?? 'unspecified'),\n  'MOTION: ' + genome.motion_profile,\n  'MAX SECTIONS: ' + (profile.max_sections ?? 11),\n].join('\\n');\n\nconst pages = [\n  {\n    slug: '/',\n    title: request.business_name,\n    intent:\n      'Home page. Lead with the single strongest local promise, then prove it. ' +\n      'Sections in this order: hero, trust strip, services, proof, process, faq, booking CTA.',\n    minSections: 6,\n  },\n  {\n    slug: 'about',\n    title: 'About Us',\n    intent:\n      'Credentials, story and facility. Cover who runs it, qualifications, years of experience, ' +\n      'technology used, and why patients/clients choose it. Include the E-E-A-T authority block.',\n    minSections: 4,\n  },\n  ...request.services.map((service) => ({\n    slug: 'services/' + slugify(service),\n    title: service,\n    intent:\n      'Dedicated local landing page for \"' + service + '\" in ' + request.city + '. ' +\n      'Cover: what it is, who needs it, the process step by step, indicative cost table, ' +\n      'recovery or timeline expectations, and 5 city-specific FAQs. Target local search intent.',\n    minSections: 5,\n  })),\n  {\n    slug: 'contact',\n    title: 'Contact',\n    intent:\n      'Contact and booking. Opening hours, address, phone, and a booking form with a honeypot field. ' +\n      'Do not invent an email or an address that was not supplied - omit what you do not know.',\n    minSections: 3,\n  },\n];\n\nreturn pages.map((page) => ({\n  json: {\n    run_id: request.run_id,\n    slug: page.slug,\n    title: page.title,\n    minSections: page.minSections,\n    intent: page.intent,\n    domain: request.domain,\n    site_slug: request.slug,\n    city: request.city,\n    services: request.services,\n    phone: request.phone,\n    business_name: request.business_name,\n    genome,\n    rhythm: genome.rhythm,\n    design_brief: designBrief,\n    shared_brief: sharedBrief,\n    retry_count: 0,\n  },\n}));"
+      },
+      "id": "a1e0c0de-Build Page Blueprints-code-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "Build Page Blueprints",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        780,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "Write the page \"{{ $json.title }}\" for this client.\n\nPAGE BRIEF\n{{ $json.intent }}\n\nDESIGN BRIEF (shape the page around this exactly)\n{{ $json.design_brief }}\n\nCLIENT FACTS (the only facts you may state)\n{{ $json.shared_brief }}\n\nMinimum sections: {{ $json.minSections }}\nReturn only the fenced ```mdx block.",
+        "options": {
+          "systemMessage": "You are a senior front-end engineer and conversion copywriter who writes ONE page of a\nclient website as MDX. You write real, specific, locally-relevant copy - never lorem ipsum and never\ngeneric filler.\n\nHARD RULES\n1. OUTPUT: a single fenced block exactly like:\n   ```mdx\n   <section className=\"...\">...</section>\n   ```\n   Nothing before or after it. No commentary, no explanation, no multiple blocks.\n2. DESIGN FIDELITY: you MUST honour the supplied design brief. Use the stated grid, rhythm, density\n   and surface treatment. A reader must be able to tell this page apart from another site's page.\n3. COLOUR/TYPE: NEVER write hex codes, rgb(), or font names. Use the CSS variables provided:\n   var(--bg-canvas) var(--bg-surface) var(--bg-contrast) var(--text-primary) var(--text-muted)\n   var(--brand-primary) var(--brand-accent) var(--on-brand) var(--radius-card) var(--radius-button)\n   var(--section-gap) var(--container-width) var(--display-scale)\n   Use var(--font-heading) for headings and var(--font-body) for body text.\n4. CLASSES: all layout classes must be written INSIDE className=\"...\" so they are compiled. Tailwind\n   arbitrary values are fine and encouraged: p-[38px], grid-cols-[1.1fr_0.9fr], text-[1.0625rem].\n   NEVER nest minmax() inside grid-template-columns - browsers drop the whole declaration.\n5. EXACTLY ONE <h1> for the page. Use <h2> for section headings. Every <img> needs a descriptive alt.\n6. Use ONLY these interactive components, spelled exactly:\n   <QuickSummary points={[\"...\",\"...\"]} />\n   <CostComparisonTable title=\"...\" rows={[{label,detail,price}]} />\n   <FaqAccordion title=\"...\" items={[{q,a}]} />\n   <DoctorReviewedBadge name=\"...\" credentials=\"...\" date=\"...\" />\n   <Callout type=\"note|tip|warning\">text</Callout>\n   <InlineLeadCTA ctaText=\"...\" service=\"...\" phone=\"...\" />\n   Never import anything. Never use any other component.\n7. FACTS: never invent awards, review counts, certifications, statistics, or staff names. Only use\n   facts present in the business brief. If a fact is not given, write copy that does not need it.\n8. PROSE: UK/Indian English. Concrete nouns and numbers. No \"in today's fast-paced world\", no\n   \"unlock\", no \"elevate\", no \"delve\".\n9. Must include a <footer> element at the end of the page content with the business name, phone and\n   a copyright line.\n10. Sections: write at least the requested minimum, each as its own <section> element.\n11. Escape a bare \"<\" in prose as &lt; (e.g. \"&lt; 30 minutes\") or MDX will treat it as a tag.",
+          "maxIterations": 2,
+          "returnIntermediateSteps": false
+        }
+      },
+      "id": "a1e0c0de-Page Architect Agent-agent-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "Page Architect Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        1040,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.ENGINE_URL }}/api/compile",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "bodyContentType": "json",
+        "jsonBody": "={\n  \"mdxBlocks\": [\n    \"{{ (($json.output || $json.text || '') + '').replace(/^\\s*```mdx\\s*/i, '').replace(/\\s*```\\s*$/i, '').replace(/\\\\/g, '\\\\\\\\').replace(/\"/g, '\\\\\"').replace(/\\n/g, '\\\\n') }}\"\n  ]\n}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "x-compile-secret",
+              "value": "={{ $env.ENGINE_COMPILE_SECRET }}"
+            }
+          ]
+        }
+      },
+      "id": "a1e0c0de-Compile Gate-http-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "Compile Gate",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1300,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "stopWorkflow"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "condition-1",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1e0c0de-MDX Valid?-if-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "MDX Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// The compile gate rejected the MDX. This camera does NOT block the run: a\n// tenant with one imperfect page is better than no tenant at all, and the site\n// is created with status 'preview' so nothing goes public unreviewed.\n//\n// What it does guarantee: the page is stored as PLAIN TEXT, never as broken JSX.\n// Broken JSX in the database would 500 a live page later.\nconst gate = $input.first().json;\nconst page = $('Build Page Blueprints').first().json;\nconst agentOutput = $('Page Architect Agent').first().json;\nconst raw = String(agentOutput.output ?? agentOutput.text ?? '');\n\n// Strip the fence and neutralise anything that looks like JSX so the stored\n// content is inert markdown rather than markup the renderer might execute.\nconst stripped = raw\n  .replace(/^\\s*```mdx\\s*/i, '')\n  .replace(/\\s*```\\s*$/i, '')\n  .replace(/<\\/?[A-Za-z][^>]*>/g, '')\n  .replace(/\\{\\{?[\\s\\S]*?\\}\\}?/g, '')\n  .trim();\n\nconst body = stripped.length > 120 ? stripped : '_Content for this page requires review._';\n\nreturn [\n  {\n    json: {\n      ...page,\n      salvaged: true,\n      compile_error: String(gate.error ?? 'unknown compile error').slice(0, 500),\n      sections: [{ md: body }],\n      compiled_css: '',\n      mdx_ok: false,\n    },\n  },\n];"
+      },
+      "id": "a1e0c0de-Salvage MDX Blocks-code-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "Salvage MDX Blocks",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1820,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Turns the validated MDX into the pages-row shape.\nconst gate = $input.first().json;\nconst page = $('Build Page Blueprints').first().json;\nconst agentOutput = $('Page Architect Agent').first().json;\nconst raw = String(agentOutput.output ?? agentOutput.text ?? '');\n\nconst mdx = raw\n  .replace(/^\\s*```mdx\\s*/i, '')\n  .replace(/\\s*```\\s*$/i, '')\n  .trim();\n\nreturn [\n  {\n    json: {\n      ...page,\n      salvaged: false,\n      sections: [\n        { mdx, anchor: 'content' },\n      ],\n      compiled_css: String(gate.css ?? ''),\n      css_bytes: Number(gate.cssBytes ?? 0),\n      warnings: gate.warnings ?? [],\n      mdx_ok: true,\n    },\n  },\n];"
+      },
+      "id": "a1e0c0de-Assemble Valid Page-code-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "Assemble Valid Page",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2080,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Both branches converge here. n8n may deliver one branch's items only, so this\n// node reads the batch from whichever branch actually produced output.\nconst validItems = $( 'Assemble Valid Page' ).all();\nconst salvagedItems = $( 'Salvage MDX Blocks' ).all();\nconst items = validItems.length ? validItems : salvagedItems;\n\nif (!items.length) {\n  throw new Error('No page output from either the valid or the salvage branch.');\n}\n\nreturn items.map((item) => ({ json: item.json }));"
+      },
+      "id": "a1e0c0de-Merge Page Results-code-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "Merge Page Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2340,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/sites?on_conflict=slug",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "bodyContentType": "json",
+        "jsonBody": "={\n  \"slug\": {{ JSON.stringify($json.site_slug) }},\n  \"domain\": {{ JSON.stringify($json.domain) }},\n  \"preview_subdomain\": {{ JSON.stringify($json.site_slug + '.' + ($env.SITES_BASE_DOMAIN || 'sites.anagataitsolutions.in')) }},\n  \"niche\": {{ JSON.stringify($('Normalize Site Request').first().json.niche) }},\n  \"city\": {{ JSON.stringify($json.city) }},\n  \"business_info\": {\n    \"name\": {{ JSON.stringify($json.business_name) }},\n    \"phone\": {{ JSON.stringify($json.phone) }},\n    \"email\": {{ JSON.stringify($('Normalize Site Request').first().json.email) }},\n    \"address\": {{ JSON.stringify($('Normalize Site Request').first().json.address) }},\n    \"services\": {{ JSON.stringify($json.services) }}\n  },\n  \"design_genome\": {{ JSON.stringify($json.genome) }},\n  \"navigation\": { \"items\": [] },\n  \"seo_global\": { \"default_title\": {{ JSON.stringify($json.business_name) }} },\n  \"status\": {{ JSON.stringify($('Normalize Site Request').first().json.status) }}\n}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer ={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=representation"
+            }
+          ]
+        }
+      },
+      "id": "a1e0c0de-Upsert Site-http-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "Upsert Site",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2600,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "stopWorkflow"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// One item per page, each carrying the site_id returned by Upsert Site.\n//\n// This node is load-bearing. Without it, Upsert Pages receives the SINGLE item\n// Upsert Site returned and n8n runs the HTTP node exactly once - so a site would\n// get one page instead of five. Emitting one item per page makes the HTTP node\n// fan out correctly, and it also puts each page's own MDX and compiled CSS on\n// the item so the request body never has to reach back into an earlier node.\nconst site = $input.first().json;\nconst siteId = site.id;\nif (!siteId) {\n  throw new Error('Upsert Site returned no row id; cannot attach pages. Response: ' + JSON.stringify(site).slice(0, 300));\n}\n\nconst pages = $('Merge Page Results').all();\nif (!pages.length) throw new Error('No pages available to insert.');\n\nreturn pages.map((item) => {\n  const page = item.json;\n  return {\n    json: {\n      site_id: siteId,\n      slug: page.slug,\n      title: page.title,\n      business_name: page.business_name,\n      city: page.city,\n      sections: page.sections,\n      compiled_css: page.compiled_css || '',\n      salvaged: page.salvaged === true,\n      seo_description: page.title + ' in ' + page.city + ' - ' + page.business_name,\n    },\n  };\n});"
+      },
+      "id": "a1e0c0de-Expand Pages For Upsert-code-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "Expand Pages For Upsert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2860,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/pages?on_conflict=site_id,slug",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "bodyContentType": "json",
+        "jsonBody": "={\n  \"site_id\": \"{{ $json.site_id }}\",\n  \"slug\": {{ JSON.stringify($json.slug) }},\n  \"title\": {{ JSON.stringify($json.title) }},\n  \"seo_meta\": {\n    \"title\": {{ JSON.stringify($json.title + ' | ' + $json.business_name) }},\n    \"description\": {{ JSON.stringify($json.seo_description) }}\n  },\n  \"sections\": {{ JSON.stringify($json.sections) }},\n  \"compiled_css\": {{ JSON.stringify($json.compiled_css) }},\n  \"published\": true\n}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer ={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=representation"
+            }
+          ]
+        }
+      },
+      "id": "a1e0c0de-Upsert Pages-http-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "Upsert Pages",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3120,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "stopWorkflow"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.N8N_WEBHOOK_BASE }}/nextjs-blog-publisher-v1",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "bodyContentType": "json",
+        "jsonBody": "={\n  \"domain\": {{ JSON.stringify($json.domain) }},\n  \"count\": 2\n}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        }
+      },
+      "id": "a1e0c0de-Seed Cornerstone Blogs-http-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "Seed Cornerstone Blogs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3380,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "stopWorkflow"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.ENGINE_URL }}/api/revalidate",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "bodyContentType": "json",
+        "jsonBody": "={ \"domain\": {{ JSON.stringify($json.domain) }}, \"type\": \"site\" }",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "x-revalidate-secret",
+              "value": "={{ $env.ENGINE_REVALIDATE_SECRET }}"
+            }
+          ]
+        }
+      },
+      "id": "a1e0c0de-Revalidate Tenant-http-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "Revalidate Tenant",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3640,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "stopWorkflow"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{\n  \"status\": \"created\",\n  \"slug\": $('Normalize Site Request').first().json.slug,\n  \"domain\": $('Normalize Site Request').first().json.domain,\n  \"preview_url\": \"https://\" + $('Normalize Site Request').first().json.preview_subdomain,\n  \"pages_generated\": $('Merge Page Results').all().length,\n  \"pages_salvaged\": $('Merge Page Results').all().filter((item) => item.json.salvaged === true).length,\n  \"design\": {\n    \"shell\": $('Merge Page Results').first().json.genome.shell_archetype,\n    \"nav\": $('Merge Page Results').first().json.genome.nav_topology,\n    \"color_mode\": $('Merge Page Results').first().json.genome.color_mode,\n    \"rhythm\": $('Merge Page Results').first().json.rhythm\n  }\n}",
+        "options": {}
+      },
+      "id": "a1e0c0de-Respond - Site Created-res-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "Respond - Site Created",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        3900,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gemini-argon",
+          "mode": "list",
+          "cachedResultName": "gemini-argon"
+        },
+        "responsesApiEnabled": false,
+        "options": {
+          "temperature": 0.4
+        }
+      },
+      "id": "a1e0c0de-Model - Gemini Argon-lm-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "Model - Gemini Argon",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        4940,
+        0
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "vIlI3yqZbj1qnCvG",
+          "name": "Gemini"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook - Create Next.js Site": {
+      "main": [
+        [
+          {
+            "node": "Normalize Site Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Site Request": {
+      "main": [
+        [
+          {
+            "node": "Get Design Genome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Design Genome": {
+      "main": [
+        [
+          {
+            "node": "Build Page Blueprints",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Page Blueprints": {
+      "main": [
+        [
+          {
+            "node": "Page Architect Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Page Architect Agent": {
+      "main": [
+        [
+          {
+            "node": "Compile Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compile Gate": {
+      "main": [
+        [
+          {
+            "node": "MDX Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MDX Valid?": {
+      "main": [
+        [
+          {
+            "node": "Assemble Valid Page",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Salvage MDX Blocks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assemble Valid Page": {
+      "main": [
+        [
+          {
+            "node": "Merge Page Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Salvage MDX Blocks": {
+      "main": [
+        [
+          {
+            "node": "Merge Page Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Page Results": {
+      "main": [
+        [
+          {
+            "node": "Upsert Site",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert Site": {
+      "main": [
+        [
+          {
+            "node": "Expand Pages For Upsert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expand Pages For Upsert": {
+      "main": [
+        [
+          {
+            "node": "Upsert Pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert Pages": {
+      "main": [
+        [
+          {
+            "node": "Seed Cornerstone Blogs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Seed Cornerstone Blogs": {
+      "main": [
+        [
+          {
+            "node": "Revalidate Tenant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Revalidate Tenant": {
+      "main": [
+        [
+          {
+            "node": "Respond - Site Created",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Model - Gemini Argon": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Page Architect Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "executionTimeout": 1800,
+    "timezone": "Asia/Kolkata"
+  },
+  "tags": []
+}

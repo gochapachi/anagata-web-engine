@@ -6,9 +6,10 @@
  * a genome spans independent axes:
  *
  *   shell_archetype  - page skeleton, column grid, section rhythm (5)
- *   nav_topology     - header shape and navigation model        (8)
+ *   nav_topology     - header shape and navigation model       (8)
  *   color_mode       - surface/contrast substrate              (12)
- *   fonts            - heading / body from disjoint pools  (40 / 20)
+ *   rhythm           - section-rhythm variant                  (8)
+ *   fonts            - heading / body from disjoint pools (40 / 20)
  *
  * Spacing, motion, radii and container width are PROPERTIES OF THE SHELL, not
  * free axes: two sites sharing a shell necessarily share its rhythm.
@@ -19,7 +20,7 @@
  * Two constant sets drive the picker:
  *
  *   PAIR_WINDOW    = 20  - the last 20 sites
- *   FLEET_CAPACITY = 4800 - the whole fleet (5 x 8 x 12 x 10 rhythm variants)
+ *   FLEET_CAPACITY = 3840 - the whole fleet (5 shells x 8 navs x 12 colours x 8 rhythms)
  *
  * Four bans are enforced against the tenant history:
  *
@@ -47,9 +48,9 @@
  *      without the limit being breached.
  *
  * --- GUARANTEE 2: fleet uniqueness (the anti-"duplicate site" promise) -------
- * Across FLEET_CAPACITY (4800) sites the (shell, nav, colour) triple never
+ * Across FLEET_CAPACITY (3840) sites the (shell, nav, colour) triple never
  * repeats, and no heading font repeats within any window of 20 (pool = 40).
- * For any realistic fleet (<= 4800 sites) no two sites can ever be identical;
+ * For any realistic fleet (<= 3840 sites) no two sites can ever be identical;
  * the *closest* possible pair in a >20-site fleet is 0.55 (same shell+nav
  * with different colour and heading, 20+ sites apart), and such pairs cannot
  * happen inside a window.
@@ -110,7 +111,7 @@ export const COLOR_MODES: ColorMode[] = [
 
 /**
  * 10 named section-rhythm variants. The triple space counts these because a
- * fleet of 4800 sites must stay distinguishable; the page agent receives the
+ * fleet of 3840 sites must stay distinguishable; the page agent receives the
  * rhythm it must implement.
  */
 export const RHYTHM_VARIANTS: RhythmVariant[] = [

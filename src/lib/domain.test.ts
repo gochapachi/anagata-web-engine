@@ -6,6 +6,7 @@ import {
   normalizeSlug,
   slugLeaf,
   previewSubdomainFor,
+  isEngineHost,
 } from './domain';
 
 describe('normalizeHost', () => {
@@ -56,6 +57,29 @@ describe('tenantFromInternalPath', () => {
 
   it('returns null for non-tenant paths', () => {
     expect(tenantFromInternalPath('/api/leads')).toBeNull();
+  });
+});
+
+describe('isEngineHost', () => {
+  it('treats localhost, bare IPs and the engine domain as infrastructure', () => {
+    for (const host of ['localhost', '127.0.0.1', '0.0.0.0', 'sites.anagataitsolutions.in']) {
+      expect(isEngineHost(host), host).toBe(true);
+    }
+  });
+
+  it('normalizes before deciding, so ports and www still count as engine hosts', () => {
+    expect(isEngineHost('localhost:3000')).toBe(true);
+    expect(isEngineHost('WWW.Localhost')).toBe(true);
+  });
+
+  it('does NOT treat a client domain or a preview subdomain as infrastructure', () => {
+    for (const host of [
+      'thecrowndentalclinic.com',
+      'www.salujadentals.com',
+      'crown-dental.sites.anagataitsolutions.in',
+    ]) {
+      expect(isEngineHost(host), host).toBe(false);
+    }
   });
 });
 

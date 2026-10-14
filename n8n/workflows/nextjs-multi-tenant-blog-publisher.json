@@ -1,0 +1,747 @@
+{
+  "name": "Anagata Next.js Multi-Tenant Blog Publisher (v1)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "nextjs-blog-publisher-v1",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a1e0c0de-Webhook - Publish Next.js Blog-wh-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "Webhook - Publish Next.js Blog",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "nextjs-blog-publisher-v1"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24
+            }
+          ]
+        }
+      },
+      "id": "a1e0c0de-Schedule - Daily Blog Fanout-sch-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "Schedule - Daily Blog Fanout",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        260,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/sites",
+        "options": {},
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "id,slug,domain,niche,city,business_info"
+            },
+            {
+              "name": "status",
+              "value": "eq.live"
+            },
+            {
+              "name": "limit",
+              "value": "50"
+            }
+          ]
+        },
+        "sendBody": false,
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer ={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        }
+      },
+      "id": "a1e0c0de-Get Live Sites-http-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "Get Live Sites",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        520,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "stopWorkflow"
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "a1e0c0de-Loop Live Sites-loop-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "Loop Live Sites",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        780,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Two entry points converge here:\n//   - the webhook, which carries an explicit domain (and optionally a topic)\n//   - the daily schedule, whose loop item is a site row\n// Both become the same shape.\nconst item = $input.first().json;\n\nconst fromWebhook = item.body ?? null;\nconst domain = String(\n  (fromWebhook && fromWebhook.domain) || item.domain || ''\n).toLowerCase().replace(/^https?:\\/\\//, '').replace(/\\/.*$/, '').replace(/^www\\./, '').trim();\n\nif (!domain) throw new Error('domain is required (or run from the schedule over live sites).');\n\nreturn [\n  {\n    json: {\n      domain,\n      topic_override: fromWebhook?.topic_override ? String(fromWebhook.topic_override) : null,\n      count: Math.min(Math.max(Number(fromWebhook?.count ?? 1), 1), 5),\n      requested_at: new Date().toISOString(),\n    },\n  },\n];"
+      },
+      "id": "a1e0c0de-Normalize Blog Request-code-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "Normalize Blog Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/sites",
+        "options": {},
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "*"
+            },
+            {
+              "name": "domain",
+              "value": "=eq.{{ $json.domain }}"
+            },
+            {
+              "name": "limit",
+              "value": "1"
+            }
+          ]
+        },
+        "sendBody": false,
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer ={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        }
+      },
+      "id": "a1e0c0de-Get Tenant Context-http-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "Get Tenant Context",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1300,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "stopWorkflow"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const rows = $input.all();\nconst site = rows[0]?.json;\nif (!site || !site.id) {\n  throw new Error('No tenant found for domain ' + $('Normalize Blog Request').first().json.domain);\n}\nconst request = $('Normalize Blog Request').first().json;\nreturn [{ json: { ...request, site } }];"
+      },
+      "id": "a1e0c0de-Check Tenant Exists-code-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "Check Tenant Exists",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/posts",
+        "options": {},
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "slug,title,category,tags"
+            },
+            {
+              "name": "site_id",
+              "value": "=eq.{{ $json.site.id }}"
+            },
+            {
+              "name": "limit",
+              "value": "200"
+            }
+          ]
+        },
+        "sendBody": false,
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer ={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            }
+          ]
+        }
+      },
+      "id": "a1e0c0de-Get Existing Posts-http-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "Get Existing Posts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1820,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "stopWorkflow"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Topic selection is DETERMINISTIC, not LLM-driven, so a duplicate can never be\n// \"accidentally\" chosen. It rotates service x angle and filters out any angle\n// already present in the tenant's existing post titles/slugs.\nconst context = $('Check Tenant Exists').first().json;\nconst existing = $input.all().map((item) => item.json);\nconst site = context.site;\nconst services = Array.isArray(site.business_info?.services) ? site.business_info.services : [];\nconst city = site.city || 'the local area';\n\nconst angles = [\n  { key: 'cost', label: 'Cost', title: (s) => s + ' Cost in ' + city + ': A Transparent Breakdown' },\n  { key: 'process', label: 'Process', title: (s) => s + ': What Actually Happens, Step by Step' },\n  { key: 'candidates', label: 'Who needs it', title: (s) => 'Do You Need ' + s + '? Signs It Is Time' },\n  { key: 'aftercare', label: 'Aftercare', title: (s) => 'After ' + s + ': Recovery and Aftercare Timeline' },\n  { key: 'compare', label: 'Comparison', title: (s) => s + ' vs the Alternatives: An Honest Comparison' },\n  { key: 'myths', label: 'Myths', title: (s) => 'Common Myths About ' + s + ', Answered' },\n];\n\nif (!services.length) services.push('Our Services');\n\nconst existingTitles = existing.map((post) => String(post.title ?? '').toLowerCase());\nconst existingSlugs = existing.map((post) => String(post.slug ?? '').toLowerCase());\n\nconst slugify = (value) =>\n  String(value).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 72);\n\nconst candidates = [];\nfor (const service of services) {\n  for (const angle of angles) {\n    const title = angle.title(service);\n    const slug = slugify(title);\n    const taken =\n      existingTitles.includes(title.toLowerCase()) ||\n      existingSlugs.includes(slug) ||\n      existingTitles.some((existingTitle) => existingTitle.includes(slugify(service)) && existingTitle.includes(angle.key));\n    if (!taken) candidates.push({ service, angle: angle.key, angleLabel: angle.label, title, slug });\n  }\n}\n\nconst wanted = context.count || 1;\nif (!candidates.length) {\n  throw new Error('No unused topic remains for ' + site.domain + '. Add a service or a new angle before publishing.');\n}\n\n// Spread the picks across services rather than taking the first N of one service.\nconst picked = [];\nconst usedServices = new Set();\nfor (const candidate of candidates) {\n  if (picked.length >= wanted) break;\n  if (usedServices.has(candidate.service) && picked.length < Math.min(wanted, services.length)) continue;\n  picked.push(candidate);\n  usedServices.add(candidate.service);\n}\nfor (const candidate of candidates) {\n  if (picked.length >= wanted) break;\n  if (!picked.includes(candidate)) picked.push(candidate);\n}\n\nreturn picked.map((candidate) => ({\n  json: {\n    ...context,\n    topic: context.topic_override ?? candidate.title,\n    slug: candidate.slug,\n    service: candidate.service,\n    angle: candidate.angleLabel,\n    existing_post_titles: existing.map((post) => post.title).slice(0, 25),\n    existing_post_slugs: existing.map((post) => post.slug).slice(0, 25),\n  },\n}));"
+      },
+      "id": "a1e0c0de-Choose Topics (No Duplicates)-code-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "Choose Topics (No Duplicates)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2080,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "Write the article \"{{ $json.topic }}\" for {{ $json.site.business_info.name }} ({{ $json.site.city }}).\n\nTARGET SERVICE: {{ $json.service }}\nANGLE: {{ $json.angle }}\n\nBUSINESS FACTS (the only facts you may state)\nName: {{ $json.site.business_info.name }}\nPhone: {{ $json.site.business_info.phone }}\nCity: {{ $json.site.city }}\nServices: {{ ($json.site.business_info.services || []).join(' | ') }}\nNamed professional: {{ $json.site.business_info.doctor_or_lead ? ($json.site.business_info.doctor_or_lead.name + ' ' + ($json.site.business_info.doctor_or_lead.credentials || '')) : 'NONE SUPPLIED - omit DoctorReviewedBadge' }}\nE-E-A-T level: {{ $json.site.business_info.authority_level || 'general practitioner content' }}\nReading level: {{ $json.site.business_info.reading_level || 'plain, accessible' }}\nInternal articles to link: {{ $json.existing_post_titles.join(' | ') || 'none yet' }}\n\nReturn only the fenced ```mdx block.",
+        "options": {
+          "systemMessage": "You are an experienced health/professional-services writer producing ONE blog article in MDX\nfor a real business's website. You write to be read by a person deciding whether to book, and to be\nquoted by an AI search engine.\n\nHARD RULES\n1. OUTPUT: a single fenced block exactly like:\n   ```mdx\n   <QuickSummary points={[\"...\",\"...\"]} />\n\n   ## Heading\n\n   Body text...\n\n   <FaqAccordion items={[{q:\"...\",a:\"...\"}]} />\n   ```\n   Nothing before or after it. No commentary, no second block.\n2. LENGTH: 1400-1900 words of body copy. Short paragraphs (2-4 sentences).\n3. STRUCTURE: 5-8 <h2> sections. Use <h3> for sub-points. Never use <h1> - the page supplies it.\n4. Use ONLY these components, spelled exactly:\n   <QuickSummary points={[\"...\"]} />\n   <CostComparisonTable title=\"...\" rows={[{label,detail,price}]} />\n   <FaqAccordion title=\"...\" items={[{q,a}]} />\n   <DoctorReviewedBadge name=\"...\" credentials=\"...\" date=\"...\" />\n   <Callout type=\"note|tip|warning\">text</Callout>\n   <InlineLeadCTA ctaText=\"...\" service=\"...\" phone=\"...\" />\n   Never import anything. Never invent another component.\n5. MUST contain, in this order: <QuickSummary>, at least 4 <h2> sections, one\n   <CostComparisonTable>, one <InlineLeadCTA>, and a closing <FaqAccordion> with 5 questions.\n6. INTERNAL LINKS: link to 2-4 of the supplied existing articles using markdown links, and to the\n   service page /services/<service-slug> at least once.\n7. FACTS: never invent statistics, study citations, awards, review counts or staff names. Describe\n   clinical/professional reality in general terms instead of citing a number you were not given.\n   Prices must be clearly framed as indicative ranges, never as a quote.\n8. If a <DoctorReviewedBadge> is used, the name must be the one supplied in the brief. If none was\n   supplied, omit the component entirely.\n9. VOICE: UK/Indian English. Direct, specific, no hype. Banned phrases: \"in today's fast-paced\n   world\", \"unlock\", \"elevate\", \"delve\", \"game-changer\", \"look no further\".\n10. Escape a bare \"<\" in prose as &lt; or MDX will treat it as a tag.",
+          "maxIterations": 2,
+          "returnIntermediateSteps": false
+        }
+      },
+      "id": "a1e0c0de-Blog Author Agent-agent-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "Blog Author Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        2340,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.ENGINE_URL }}/api/compile",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "bodyContentType": "json",
+        "jsonBody": "={\n  \"mdxBlocks\": [\n    \"{{ (($json.output || $json.text || '') + '').replace(/^\\s*```mdx\\s*/i, '').replace(/\\s*```\\s*$/i, '').replace(/\\\\/g, '\\\\\\\\').replace(/\"/g, '\\\\\"').replace(/\\n/g, '\\\\n') }}\"\n  ]\n}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "x-compile-secret",
+              "value": "={{ $env.ENGINE_COMPILE_SECRET }}"
+            }
+          ]
+        }
+      },
+      "id": "a1e0c0de-Compile Gate-http-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "Compile Gate",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2600,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "stopWorkflow"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "condition-1",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1e0c0de-MDX Valid?-if-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "MDX Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2860,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// The article failed to compile. Publish it as inert plain markdown rather than\n// broken JSX: an imperfect article is recoverable, a 500 on /blog/<slug> is not.\nconst gate = $input.first().json;\nconst context = $('Choose Topics (No Duplicates)').first().json;\nconst agentOutput = $('Blog Author Agent').first().json;\nconst raw = String(agentOutput.output ?? agentOutput.text ?? '');\n\nconst stripped = raw\n  .replace(/^\\s*```mdx\\s*/i, '')\n  .replace(/\\s*```\\s*$/i, '')\n  .replace(/<\\/?[A-Za-z][^>]*>/g, '')\n  .trim();\n\nconst words = stripped.split(/\\s+/).filter(Boolean).length;\nif (words < 400) {\n  throw new Error('Salvaged article is too short to publish (' + words + ' words) and the original failed to compile: ' + String(gate.error).slice(0, 300));\n}\n\nreturn [\n  {\n    json: {\n      ...context,\n      content_mdx: stripped,\n      compiled_css: '',\n      salvaged: true,\n      compile_error: String(gate.error ?? '').slice(0, 500),\n      reading_time_mins: Math.max(1, Math.round(words / 220)),\n    },\n  },\n];"
+      },
+      "id": "a1e0c0de-Salvage Blog MDX-code-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "Salvage Blog MDX",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3120,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const gate = $input.first().json;\nconst context = $('Choose Topics (No Duplicates)').first().json;\nconst agentOutput = $('Blog Author Agent').first().json;\nconst raw = String(agentOutput.output ?? agentOutput.text ?? '');\n\nconst content = raw\n  .replace(/^\\s*```mdx\\s*/i, '')\n  .replace(/\\s*```\\s*$/i, '')\n  .trim();\n\nconst words = content.split(/\\s+/).filter(Boolean).length;\nif (words < 500) {\n  throw new Error('Article is only ' + words + ' words. Refusing to publish thin content on ' + context.domain + '.');\n}\n\n// The first paragraph of prose becomes the excerpt, with any component tags removed.\nconst excerpt =\n  content\n    .split('\\n')\n    .map((line) => line.trim())\n    .filter((line) => line && !line.startsWith('<') && !line.startsWith('#') && !line.startsWith('-'))\n    .join(' ')\n    .slice(0, 300) || context.topic;\n\nconst business = context.site.business_info ?? {};\n\nreturn [\n  {\n    json: {\n      ...context,\n      content_mdx: content,\n      compiled_css: String(gate.css ?? ''),\n      warnings: gate.warnings ?? [],\n      salvaged: false,\n      excerpt,\n      word_count: words,\n      reading_time_mins: Math.max(1, Math.round(words / 220)),\n      seo_title: context.topic.length > 60 ? context.topic.slice(0, 57) + '...' : context.topic,\n      meta_description: excerpt.slice(0, 155),\n      author: business.doctor_or_lead\n        ? { name: business.doctor_or_lead.name, credentials: business.doctor_or_lead.credentials }\n        : { name: business.name },\n    },\n  },\n];"
+      },
+      "id": "a1e0c0de-Assemble Blog Post-code-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "Assemble Blog Post",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3380,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const valid = $('Assemble Blog Post').all();\nconst salvaged = $('Salvage Blog MDX').all();\nconst items = valid.length ? valid : salvaged;\nif (!items.length) throw new Error('No blog output from either branch.');\nreturn items.map((item) => ({ json: item.json }));"
+      },
+      "id": "a1e0c0de-Merge Blog Results-code-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "Merge Blog Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3640,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Flattens the merged blog item into exactly what the insert needs, with every\n// value already a plain JSON-safe scalar. The HTTP node below then JSON.stringify's\n// these fields instead of interpolating raw article MDX into a quoted string -\n// an article full of quotes and newlines would otherwise produce invalid JSON\n// and a silent 400 from PostgREST.\nconst post = $input.first().json;\nconst site = post.site ?? {};\nconst business = site.business_info ?? {};\n\nif (!site.id) throw new Error('Missing site id on the blog item.');\nif (!post.content_mdx || post.content_mdx.length < 400) {\n  throw new Error('Refusing to insert a thin article (' + (post.content_mdx || '').length + ' chars).');\n}\n\nreturn [\n  {\n    json: {\n      site_id: site.id,\n      domain: post.domain,\n      slug: post.slug,\n      title: post.topic,\n      excerpt: post.excerpt,\n      content_mdx: post.content_mdx,\n      compiled_css: post.compiled_css || '',\n      category: post.service,\n      tags: [post.service],\n      author: post.author ?? { name: business.name },\n      seo_title: post.seo_title,\n      meta_description: post.meta_description,\n      focus_keyword: post.service + ' ' + (site.city || ''),\n      reading_time_mins: post.reading_time_mins,\n    },\n  },\n];"
+      },
+      "id": "a1e0c0de-Prepare Post Row-code-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "Prepare Post Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3900,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SUPABASE_URL }}/rest/v1/posts?on_conflict=site_id,slug",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "bodyContentType": "json",
+        "jsonBody": "={\n  \"site_id\": \"{{ $json.site_id }}\",\n  \"slug\": {{ JSON.stringify($json.slug) }},\n  \"title\": {{ JSON.stringify($json.title) }},\n  \"excerpt\": {{ JSON.stringify($json.excerpt) }},\n  \"content_mdx\": {{ JSON.stringify($json.content_mdx) }},\n  \"compiled_css\": {{ JSON.stringify($json.compiled_css) }},\n  \"category\": {{ JSON.stringify($json.category) }},\n  \"tags\": {{ JSON.stringify($json.tags) }},\n  \"author\": {{ JSON.stringify($json.author) }},\n  \"seo_meta\": {\n    \"seo_title\": {{ JSON.stringify($json.seo_title) }},\n    \"meta_description\": {{ JSON.stringify($json.meta_description) }},\n    \"focus_keyword\": {{ JSON.stringify($json.focus_keyword) }}\n  },\n  \"reading_time_mins\": {{ $json.reading_time_mins }},\n  \"status\": \"published\"\n}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer ={{ $env.SUPABASE_SERVICE_ROLE_KEY }}"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=representation"
+            }
+          ]
+        }
+      },
+      "id": "a1e0c0de-Upsert Post-http-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "Upsert Post",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4160,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "stopWorkflow"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.ENGINE_URL }}/api/revalidate",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "bodyContentType": "json",
+        "jsonBody": "={\n  \"domain\": \"{{ $json.domain }}\",\n  \"slug\": \"{{ $json.slug }}\",\n  \"type\": \"post\"\n}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "x-revalidate-secret",
+              "value": "={{ $env.ENGINE_REVALIDATE_SECRET }}"
+            }
+          ]
+        }
+      },
+      "id": "a1e0c0de-Revalidate Tenant Blog-http-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "Revalidate Tenant Blog",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4420,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "stopWorkflow"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{\n  \"status\": $('Merge Blog Results').first().json.salvaged ? \"published_unverified\" : \"published\",\n  \"domain\": $('Merge Blog Results').first().json.domain,\n  \"slug\": $('Merge Blog Results').first().json.slug,\n  \"url\": \"https://\" + $('Merge Blog Results').first().json.domain + \"/blog/\" + $('Merge Blog Results').first().json.slug,\n  \"title\": $('Merge Blog Results').first().json.topic,\n  \"words\": $('Merge Blog Results').first().json.word_count ?? null,\n  \"revalidated\": true\n}",
+        "options": {}
+      },
+      "id": "a1e0c0de-Respond - Blog Published-res-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "Respond - Blog Published",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        4680,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gemini-argon",
+          "mode": "list",
+          "cachedResultName": "gemini-argon"
+        },
+        "responsesApiEnabled": false,
+        "options": {
+          "temperature": 0.4
+        }
+      },
+      "id": "a1e0c0de-Model - Gemini Argon Blog-lm-4b1e-9f2a-8c3d5e6f7a8b",
+      "name": "Model - Gemini Argon Blog",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        5200,
+        0
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "vIlI3yqZbj1qnCvG",
+          "name": "Gemini"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook - Publish Next.js Blog": {
+      "main": [
+        [
+          {
+            "node": "Normalize Blog Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule - Daily Blog Fanout": {
+      "main": [
+        [
+          {
+            "node": "Get Live Sites",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Live Sites": {
+      "main": [
+        [
+          {
+            "node": "Loop Live Sites",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Live Sites": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Normalize Blog Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Blog Request": {
+      "main": [
+        [
+          {
+            "node": "Get Tenant Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Tenant Context": {
+      "main": [
+        [
+          {
+            "node": "Check Tenant Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Tenant Exists": {
+      "main": [
+        [
+          {
+            "node": "Get Existing Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Existing Posts": {
+      "main": [
+        [
+          {
+            "node": "Choose Topics (No Duplicates)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Choose Topics (No Duplicates)": {
+      "main": [
+        [
+          {
+            "node": "Blog Author Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Blog Author Agent": {
+      "main": [
+        [
+          {
+            "node": "Compile Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compile Gate": {
+      "main": [
+        [
+          {
+            "node": "MDX Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MDX Valid?": {
+      "main": [
+        [
+          {
+            "node": "Assemble Blog Post",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Salvage Blog MDX",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assemble Blog Post": {
+      "main": [
+        [
+          {
+            "node": "Merge Blog Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Salvage Blog MDX": {
+      "main": [
+        [
+          {
+            "node": "Merge Blog Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Blog Results": {
+      "main": [
+        [
+          {
+            "node": "Prepare Post Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Post Row": {
+      "main": [
+        [
+          {
+            "node": "Upsert Post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert Post": {
+      "main": [
+        [
+          {
+            "node": "Revalidate Tenant Blog",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Revalidate Tenant Blog": {
+      "main": [
+        [
+          {
+            "node": "Respond - Blog Published",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Model - Gemini Argon Blog": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Blog Author Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true,
+    "executionTimeout": 1800,
+    "timezone": "Asia/Kolkata"
+  },
+  "tags": []
+}

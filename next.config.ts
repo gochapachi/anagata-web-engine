@@ -14,6 +14,21 @@ const nextConfig: NextConfig = {
   output: 'standalone',
   poweredByHeader: false,
   reactStrictMode: true,
+  /**
+   * Tailwind v4's compiler and MDX are used at REQUEST time (see
+   * `src/lib/compile.ts` and the MDX renderer), so they must stay OUT of the
+   * webpack bundle: `@tailwindcss/oxide` is a native `.node` binary, and
+   * bundling it fails with "Module parse failed: Unexpected character".
+   * Marking them external keeps them as ordinary runtime requires.
+   */
+  serverExternalPackages: [
+    'tailwindcss',
+    '@tailwindcss/postcss',
+    '@tailwindcss/node',
+    '@tailwindcss/oxide',
+    '@mdx-js/mdx',
+    'postcss',
+  ],
   images: {
     // Tenants serve images through the first-party /media proxy, so remote
     // patterns stay locked down to the engine's own hostnames.
