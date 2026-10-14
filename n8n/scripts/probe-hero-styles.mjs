@@ -80,14 +80,37 @@ const probe = `JSON.stringify((() => {
   const h1 = document.querySelector('h1');
   const h2s = [...document.querySelectorAll('h2')];
 
-  // Detect overlap between sibling section boxes.
-  const sections = [...document.querySelectorAll('section, .shell-section')].map((el) => {
+  // Detect overlap between section boxes.
+  //
+  // Only ANCESTOR-INDEPENDENT overlaps count. Nesting is normal and expected: the
+  // hero contains inner sections, and a card can contain its own section. Counting
+  // every overlapping pair (including parent/child) reported 8 "overlaps" on a
+  // perfectly good page, which is a false positive that trains you to ignore the
+  // check.
+  const els = [...document.querySelectorAll('section, .shell-section')];
+  const sections = els.map((el) => {
     const r = el.getBoundingClientRect();
-    return { top: Math.round(r.top + window.scrollY), bottom: Math.round(r.bottom + window.scrollY), w: Math.round(r.width) };
+    return {
+      el,
+      top: Math.round(r.top + window.scrollY),
+      bottom: Math.round(r.bottom + window.scrollY),
+      w: Math.round(r.width),
+    };
   });
   let overlaps = 0;
-  for (let i = 1; i < sections.length; i++) {
-    if (sections[i].top < sections[i - 1].bottom - 2) overlaps++;
+  for (let a = 0; a < sections.length; a++) {
+    for (let b = a + 1; b < sections.length; b++) {
+      const A = sections[a];
+      const B = sections[b];
+      const intersects = A.top < B.bottom - 2 && B.top < A.bottom - 2;
+      if (!intersects) continue;
+      // Ancestry must be checked with contains(), not the nearest parent: a
+      // section nested two levels deep (FAQ inside a wrapper inside the hero)
+      // legitimately overlaps its ancestor and is not a layout bug. Comparing
+      // only direct parents reported it as a real overlap.
+      const related = A.el.contains(B.el) || B.el.contains(A.el);
+      if (!related) overlaps++;
+    }
   }
 
   return {

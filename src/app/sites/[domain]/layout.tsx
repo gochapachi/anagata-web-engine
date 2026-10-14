@@ -6,6 +6,17 @@ import { googleFontsHref, effectiveNavTopology } from '@/components/shells/types
 import { SHELLS } from '@/components/shells';
 import type { DesignGenome, SiteRow } from '@/lib/types';
 
+// The shell primitives (.shell-container, .shell-section, .shell-display, ...) MUST
+// be loaded from a module that is actually in the render path.
+//
+// They used to arrive only via `NavBar.tsx`'s `import './shell.css'`, and nothing
+// imported NavBar - so 234 lines / 28 selectors of shell CSS were never bundled.
+// The build emitted NO CSS at all (.next/static/css did not exist), which left
+// every tenant page unstyled: a 16px browser-default H1, no container width, no
+// section spacing, overlapping sections. Importing the stylesheet here fixes it
+// for every tenant route because all of them render through this layout.
+import '@/components/shells/shell.css';
+
 /**
  * Tenant layout. Resolves the host to a tenant, derives (or restores) its design
  * genome, and wraps children in the matching structural shell.
