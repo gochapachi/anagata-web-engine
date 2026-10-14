@@ -149,10 +149,52 @@ still discovered all 46 tools before failing on the first real call.
 | `supabase_db` | `@bytebase/dbhub` → `dist/index.js` | 2 | `execute_sql` → OK |
 | `coolify` | `@masonator/coolify-mcp` → `dist/index.js` | 46 | `list_servers` → OK |
 | `github` | official `github/github-mcp-server` **v2.0.2** (.exe) | 46 | `get_me` → `gochapachi` |
-| `supabase` | `@supabase/mcp-server-supabase` | 19 | **cannot authenticate here** |
+| `supabase_cloud` | hosted HTTP `mcp.supabase.com` | — | **needs OAuth; restart required** |
 | `gsc` | `suganthan-gsc-mcp` | (pre-existing) | not checked |
 
-### Four corrections to the config you supplied
+### Supabase agent skills (installed)
+
+`npx skills add supabase/agent-skills` — official repo, 2819 stars. Installed
+project-scoped into `.agents/skills/` (gitignored) and symlinked to Hermes:
+
+- **`supabase`** — use for ANY Supabase task (client libs, SSR, RLS, auth, CLI, MCP)
+- **`supabase-postgres-best-practices`** — load BEFORE writing or altering anything in
+  Postgres: schema, column types, migrations, RLS policies, indexes, triggers,
+  EXPLAIN/locking/connection troubleshooting
+
+Regenerate with `npx skills add supabase/agent-skills -s '*' -y` from the project root.
+
+### `supabase_cloud` — added, and one thing to confirm
+
+The hosted MCP endpoint works only over **OAuth**, not a token flag:
+
+```bash
+# what the docs give you (wrong arguments for this server):
+claude mcp add ... --access-token <JWT>          # -> nothing reads --access-token
+# reality, confirmed from the endpoint's own metadata:
+www-authenticate: Bearer resource_metadata="https://mcp.supabase.com/.well-known/
+                  oauth-protected-resource/mcp?project_ref=ibqzwkyoczdcrdlnhzgh"
+authorization_servers: ["https://api.supabase.com"]
+authorization_endpoint: https://api.supabase.com/v1/oauth/authorize
+token_endpoint:         https://api.supabase.com/v1/oauth/token
+grant_types:            authorization_code, refresh_token, urn:ietf:params:oauth:grant-type:jwt-bearer
+```
+
+So it is a standard **authorization-code + PKCE** flow. Hermes's MCP client has OAuth
+support (`mcp.client.auth`) and will run that flow against `api.supabase.com` when it
+connects — **there is no CLI command that does *your* `claude /mcp` step for Hermes.**
+Restart Hermes and watch for the authorization URL/prompt.
+
+> **CONFIRM THIS FIRST:** the `project_ref` in the snippet is `ibqzwkyoczdcrdlnhzgh`,
+> which is a **different Supabase from the self-hosted one** we migrated
+> (`nhngpjplwngcmdzqijkd`). Both resolve in DNS, so both exist. If the intent was to
+> point the MCP at the self-hosted instance, this entry points somewhere else and
+> should be corrected or removed — `supabase_db` is the one that reads the database we
+> actually created tables in.
+
+---
+
+### Four corrections to the config you originally supplied
 
 1. **`masonator/coolify-mcp` → `@masonator/coolify-mcp`.** The unscoped name does not
    exist on npm; the scoped one does (v3.9.0).
