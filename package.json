@@ -17,6 +17,7 @@
     "@tailwindcss/postcss": "^4.1.13",
     "gray-matter": "^4.0.3",
     "next": "^15.5.4",
+    "pg": "^8.23.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "tailwindcss": "^4.1.13"
