@@ -11,3 +11,4 @@ dist/
 # Supabase agent skills (installed via `npx skills add supabase/agent-skills`)
 .agents/
 .claude/skills/
+.engine-secrets.local

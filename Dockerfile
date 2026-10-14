@@ -28,6 +28,12 @@ ENV TMPDIR=/tmp
 
 RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
 
+# Coolify's Dockerfile-based healthcheck shells out to `curl` (falling back to
+# `wget`); neither exists on alpine, so a perfectly healthy container gets marked
+# unhealthy and the deploy rolls back. Install curl and ignore the Dockerfile's
+# own HEALTHCHECK below, which Coolify does not use for image-based apps.
+RUN apk add --no-cache curl
+
 # Next standalone output is a self-contained server plus the traced module set.
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
