@@ -183,8 +183,15 @@ function httpNode({
   sendBody = method !== 'GET',
   bodyContentType = 'json',
   options = {},
+  executeOnce = false,
 }) {
   const parameters = { method, url, options };
+
+  // Set when the caller wants exactly one HTTP call for the whole batch. Without
+  // it n8n repeats the request per incoming item, so a node placed after a
+  // fan-out fires N times - which is how a 5-page site tried to seed 10 blog
+  // articles and revalidate one tenant five times.
+  if (executeOnce) parameters.executeOnce = true;
 
   if (queryParameters?.length) {
     parameters.sendQuery = true;
@@ -824,22 +831,31 @@ return pages.map((item) => {
     name: 'Seed Cornerstone Blogs',
     method: 'POST',
     url: `${N8N_WEBHOOK_BASE}/nextjs-blog-publisher-v2`,
-    jsonBody: `={
-  "domain": {{ JSON.stringify($json.domain) }},
-  "count": 2
-}`,
+    // 'domain' is read from Normalize Site Request, NOT from $json: this node sits
+    // after 'Upsert Pages', whose fanned-out items carry {id, site_id, slug, ...}
+    // and no domain, so $json.domain was undefined and the body became
+    // {"domain": undefined, ...} - invalid JSON (execution 120874).
+    //
+    // executeOnce: true matters just as much. Without it n8n runs this HTTP node
+    // once per incoming item, so a 5-page site would seed 10 articles instead of
+    // 2 - and would fire the blog publisher with a partial site.
+    jsonBody: `={ "domain": {{ JSON.stringify($('Normalize Site Request').first().json.domain) }}, "count": 2 }`,
     headers: [{ name: 'Content-Type', value: 'application/json' }],
+    executeOnce: true,
   }),
 
   httpNode({
     name: 'Revalidate Tenant',
     method: 'POST',
     url: `${ENGINE_URL}/api/revalidate`,
-    jsonBody: `={ "domain": {{ JSON.stringify($json.domain) }}, "type": "site" }`,
+    // Same fix: domain comes from the request node, and the call runs once.
+    // executeOnce also stops 5 redundant revalidations of one tenant.
+    jsonBody: `={ "domain": {{ JSON.stringify($('Normalize Site Request').first().json.domain) }}, "type": "site" }`,
     headers: [
       { name: 'Content-Type', value: 'application/json' },
       { name: 'x-revalidate-secret', value: REVALIDATE_SECRET },
     ],
+    executeOnce: true,
   }),
 
   codeNode({
@@ -1495,6 +1511,50 @@ for (const [file, definition] of [
     }
   }
   console.log(`[ok] ${file}: agent prompts are expressions (leading '=')`);
+
+  // An HTTP body may only read a field from ITS OWN input item ($json). Reading
+  // $json.<field> when the predecessor does not emit that field evaluates to the
+  // literal undefined and n8n rejects the body with "The value in the JSON Body
+  // field is not valid JSON" - execution 120874, where Seed Cornerstone Blogs
+  // read $json.domain from an Upsert Pages item that carries only
+  // {id, site_id, slug, title, ...}.
+  //
+  // The fix pattern is to reach into a node that really has the field, e.g.
+  // $('Normalize Site Request').first().json.domain.
+  const emittedFields = {
+    'Upsert Pages': ['id', 'site_id', 'slug', 'title', 'seo_meta', 'sections', 'compiled_css', 'published', 'created_at', 'updated_at'],
+    'Upsert Site': ['id', 'slug', 'domain', 'preview_subdomain', 'niche', 'city', 'business_info', 'design_genome', 'navigation', 'seo_global', 'status', 'created_at', 'updated_at'],
+    'Upsert Post': ['id', 'site_id', 'domain', 'slug', 'title', 'excerpt', 'content_mdx', 'reading_time_mins', 'published', 'created_at', 'updated_at'],
+    'Expand Pages For Upsert': ['site_id', 'slug', 'title', 'business_name', 'city', 'sections', 'compiled_css', 'salvaged', 'seo_description'],
+    // Field lists are what each node ACTUALLY emits. A missing entry makes the
+    // guard cry wolf, so they are transcribed from the emitting node's return
+    // value - e.g. Prepare Post Row does return compiled_css (line ~1278).
+    'Prepare Post Row': ['site_id', 'domain', 'slug', 'title', 'excerpt', 'content_mdx', 'compiled_css', 'category', 'tags', 'author', 'seo_title', 'meta_description', 'focus_keyword', 'reading_time_mins'],
+  };
+
+  for (const node of definition.nodes) {
+    const body = node.parameters?.jsonBody;
+    if (typeof body !== 'string') continue;
+
+    const predecessor = Object.entries(definition.connections).find(([, outputs]) =>
+      Object.values(outputs).some((branches) =>
+        branches.some((branch) => branch.some((edge) => edge.node === node.name))
+      )
+    )?.[0];
+    const available = predecessor ? emittedFields[predecessor] : undefined;
+    if (!available) continue;
+
+    for (const field of [...body.matchAll(/\$json\.([A-Za-z_][A-Za-z0-9_]*)/g)].map((m) => m[1])) {
+      if (!available.includes(field)) {
+        throw new Error(
+          `${file}: "${node.name}" reads $json.${field}, but its predecessor ` +
+            `"${predecessor}" emits only [${available.join(', ')}] - that resolves to ` +
+            'undefined and produces an invalid JSON body'
+        );
+      }
+    }
+  }
+  console.log(`[ok] ${file}: every $json.<field> read is emitted by the node's predecessor`);
 
   console.log(`[ok] ${file}: every connection target resolves to a real node`);
 

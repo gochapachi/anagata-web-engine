@@ -319,10 +319,11 @@
         "method": "POST",
         "url": "https://n8n.anagataitsolutions.in/webhook/nextjs-blog-publisher-v2",
         "options": {},
+        "executeOnce": true,
         "sendBody": true,
         "specifyBody": "json",
         "bodyContentType": "json",
-        "jsonBody": "={\n  \"domain\": {{ JSON.stringify($json.domain) }},\n  \"count\": 2\n}",
+        "jsonBody": "={ \"domain\": {{ JSON.stringify($('Normalize Site Request').first().json.domain) }}, \"count\": 2 }",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -351,10 +352,11 @@
         "method": "POST",
         "url": "https://sites.anagataitsolutions.in/api/revalidate",
         "options": {},
+        "executeOnce": true,
         "sendBody": true,
         "specifyBody": "json",
         "bodyContentType": "json",
-        "jsonBody": "={ \"domain\": {{ JSON.stringify($json.domain) }}, \"type\": \"site\" }",
+        "jsonBody": "={ \"domain\": {{ JSON.stringify($('Normalize Site Request').first().json.domain) }}, \"type\": \"site\" }",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
