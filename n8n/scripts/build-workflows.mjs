@@ -184,6 +184,7 @@ function httpNode({
   bodyContentType = 'json',
   options = {},
   executeOnce = false,
+    allowEmptyOutput = false,
   }) {
     const parameters = { method, url, options };
 
@@ -215,6 +216,13 @@ function httpNode({
       // parameters is silently ignored by n8n, which is what let 'Seed Cornerstone
       // Blogs' fire once per page (5x) after a 5-page fan-out in execution 120885.
       ...(executeOnce ? { executeOnce: true } : {}),
+      // A GET that legitimately matches zero rows (a tenant's post list before its
+      // first article) returns an empty array. Without this, n8n emits no items,
+      // the downstream branch never runs, and the publish dies SILENTLY - which is
+      // exactly how blog seeding produced nothing on a brand-new site.
+      // Reads that must survive an empty result set this; writes must not, because
+      // an empty write body would be a bug worth failing on.
+      ...(allowEmptyOutput ? { alwaysOutputData: true } : {}),
       retryOnFail: true,
       maxTries: 3,
       waitBetweenTries: 2000,
@@ -1105,6 +1113,10 @@ return [{ json: { ...request, site } }];`,
       { name: 'site_id', value: '=eq.{{ $json.site.id }}' },
       { name: 'limit', value: '200' },
     ],
+    // A NEW TENANT HAS ZERO POSTS, and PostgREST then returns []. Without
+    // alwaysOutputData the branch stops here and the whole publish dies silently,
+    // so cornerstone seeding never produced a single article.
+    allowEmptyOutput: true,
     headers: [
       { name: 'apikey', value: SUPABASE_KEY },
       { name: 'Authorization', value: `=Bearer ${SUPABASE_KEY}` },
@@ -1117,7 +1129,13 @@ return [{ json: { ...request, site } }];`,
 // "accidentally" chosen. It rotates service x angle and filters out any angle
 // already present in the tenant's existing post titles/slugs.
 const context = $('Check Tenant Exists').first().json;
-const existing = $input.all().map((item) => item.json);
+// alwaysOutputData on 'Get Existing Posts' means an empty post list arrives as a
+// single empty item ({}) rather than zero items, so a naive map would treat that
+// placeholder as an existing post. Filter to rows that actually carry a slug.
+const existing = $input
+  .all()
+  .map((item) => item.json)
+  .filter((row) => row && typeof row === 'object' && (row.slug || row.title));
 const site = context.site;
 const services = Array.isArray(site.business_info?.services) ? site.business_info.services : [];
 const city = site.city || 'the local area';
