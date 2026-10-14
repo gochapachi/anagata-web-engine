@@ -8,7 +8,7 @@
         "responseMode": "responseNode",
         "options": {}
       },
-      "id": "a1e0c0de-Webhook - Create Next.js Site-wh-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "1478a208-8963-4d8e-801b-2a729b270dfe",
       "name": "Webhook - Create Next.js Site",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -23,7 +23,7 @@
         "mode": "runOnceForAllItems",
         "jsCode": "// Validates the request and derives every identifier the rest of the run needs.\n// Throws early: a malformed request must fail in 1 second, not after 20 minutes\n// of LLM spend.\nconst body = $input.first().json.body ?? $input.first().json;\n\nconst required = ['business_name', 'niche', 'city', 'phone', 'services'];\nconst missing = required.filter((field) => {\n  const value = body[field];\n  if (Array.isArray(value)) return value.length === 0;\n  return value === undefined || value === null || String(value).trim() === '';\n});\nif (missing.length) {\n  throw new Error('Missing required field(s): ' + missing.join(', '));\n}\n\nconst slugify = (value) =>\n  String(value)\n    .toLowerCase()\n    .normalize('NFKD')\n    .replace(/[^a-z0-9]+/g, '-')\n    .replace(/^-+|-+$/g, '')\n    .slice(0, 48);\n\nconst slug = slugify(body.slug || body.business_name);\nif (!slug) throw new Error('Could not derive a slug from business_name.');\n\nconst domain = body.custom_domain\n  ? String(body.custom_domain).toLowerCase().replace(/^https?:\\/\\//, '').replace(/\\/.*$/, '').replace(/^www\\./, '').trim()\n  : slug + '.' + 'sites.anagataitsolutions.in';\n\nconst services = (Array.isArray(body.services) ? body.services : String(body.services).split(','))\n  .map((service) => String(service).trim())\n  .filter(Boolean);\n\nif (!services.length) throw new Error('services must contain at least one entry.');\n\nreturn [\n  {\n    json: {\n      run_id: slug + '-' + Date.now().toString(36),\n      slug,\n      domain,\n      preview_subdomain: slug + '.' + 'sites.anagataitsolutions.in',\n      niche: String(body.niche).trim(),\n      city: String(body.city).trim(),\n      business_name: String(body.business_name).trim(),\n      phone: String(body.phone).trim(),\n      whatsapp: body.whatsapp ? String(body.whatsapp).trim() : null,\n      email: body.email ? String(body.email).trim() : null,\n      address: body.address ? String(body.address).trim() : null,\n      services,\n      // Optional: an existing site to draw tone/structure cues from.\n      reference_url: body.reference_url ? String(body.reference_url) : null,\n      brand_notes: body.brand_notes ? String(body.brand_notes) : null,\n      doctor_or_lead: body.doctor_or_lead ?? null,\n      status: body.custom_domain ? 'live' : 'preview',\n      started_at: new Date().toISOString(),\n    },\n  },\n];"
       },
-      "id": "a1e0c0de-Normalize Site Request-code-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "24c7cd2c-3ca0-4c25-88ab-d97efa92e687",
       "name": "Normalize Site Request",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -51,7 +51,7 @@
           ]
         }
       },
-      "id": "a1e0c0de-Get Design Genome-http-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "e4908bfc-e364-450e-8865-03fc68c04501",
       "name": "Get Design Genome",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -69,7 +69,7 @@
         "mode": "runOnceForAllItems",
         "jsCode": "// Expands ONE request item into ONE item per page to generate.\n//\n// Every item carries the genome so the page agent writes to the tenant's actual\n// structure (grid, rhythm, shell) rather than a generic layout. This is where\n// \"the AI writes a bespoke site\" is actually wired: the genome constrains the\n// design, the agent fills it.\nconst request = $('Normalize Site Request').first().json;\nconst genomeResponse = $input.first().json;\n\nif (!genomeResponse || !genomeResponse.genome) {\n  throw new Error('Design genome service returned no genome: ' + JSON.stringify(genomeResponse).slice(0, 400));\n}\nif (genomeResponse.similarity_ok === false) {\n  // The engine reports this only when its ledger read failed. Publishing anyway\n  // would risk shipping a duplicate-looking site, which is the one thing this\n  // system exists to prevent.\n  throw new Error('Anti-sameness check failed: ' + JSON.stringify(genomeResponse.similarity ?? {}).slice(0, 300));\n}\n\nconst genome = genomeResponse.genome;\nconst profile = genomeResponse.profile ?? genome._profile ?? {};\n\nconst slugify = (value) =>\n  String(value).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);\n\nconst lead = request.doctor_or_lead ?? null;\nconst leadLine = lead && lead.name ? lead.name + (lead.credentials ? ', ' + lead.credentials : '') : null;\n\nconst sharedBrief = [\n  'BUSINESS: ' + request.business_name,\n  'NICHE: ' + request.niche,\n  'CITY: ' + request.city,\n  'PHONE: ' + request.phone,\n  request.address ? 'ADDRESS: ' + request.address : null,\n  'SERVICES: ' + request.services.join(' | '),\n  leadLine ? 'NAMED PROFESSIONAL (use for E-E-A-T, never invent other people): ' + leadLine : null,\n  request.reference_url ? 'REFERENCE SITE (tone only, never copy text): ' + request.reference_url : null,\n  request.brand_notes ? 'BRAND NOTES: ' + request.brand_notes : null,\n].filter(Boolean).join('\\n');\n\nconst designBrief = [\n  'SHELL: ' + genome.shell_archetype,\n  'NAV: ' + genome.nav_topology,\n  'COLOUR MODE: ' + genome.color_mode,\n  'SECTION RHYTHM: ' + genome.rhythm,\n  'GRID: ' + (profile.grid ?? 'unspecified'),\n  'DENSITY: ' + (profile.density ?? 'balanced'),\n  'SURFACE: ' + (profile.surface_treatment ?? 'unspecified'),\n  'MOTION: ' + genome.motion_profile,\n  'MAX SECTIONS: ' + (profile.max_sections ?? 11),\n].join('\\n');\n\nconst pages = [\n  {\n    slug: '/',\n    title: request.business_name,\n    intent:\n      'Home page. Lead with the single strongest local promise, then prove it. ' +\n      'Sections in this order: hero, trust strip, services, proof, process, faq, booking CTA.',\n    minSections: 6,\n  },\n  {\n    slug: 'about',\n    title: 'About Us',\n    intent:\n      'Credentials, story and facility. Cover who runs it, qualifications, years of experience, ' +\n      'technology used, and why patients/clients choose it. Include the E-E-A-T authority block.',\n    minSections: 4,\n  },\n  ...request.services.map((service) => ({\n    slug: 'services/' + slugify(service),\n    title: service,\n    intent:\n      'Dedicated local landing page for \"' + service + '\" in ' + request.city + '. ' +\n      'Cover: what it is, who needs it, the process step by step, indicative cost table, ' +\n      'recovery or timeline expectations, and 5 city-specific FAQs. Target local search intent.',\n    minSections: 5,\n  })),\n  {\n    slug: 'contact',\n    title: 'Contact',\n    intent:\n      'Contact and booking. Opening hours, address, phone, and a booking form with a honeypot field. ' +\n      'Do not invent an email or an address that was not supplied - omit what you do not know.',\n    minSections: 3,\n  },\n];\n\nreturn pages.map((page) => ({\n  json: {\n    run_id: request.run_id,\n    slug: page.slug,\n    title: page.title,\n    minSections: page.minSections,\n    intent: page.intent,\n    domain: request.domain,\n    site_slug: request.slug,\n    city: request.city,\n    services: request.services,\n    phone: request.phone,\n    business_name: request.business_name,\n    genome,\n    rhythm: genome.rhythm,\n    design_brief: designBrief,\n    shared_brief: sharedBrief,\n    retry_count: 0,\n  },\n}));"
       },
-      "id": "a1e0c0de-Build Page Blueprints-code-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "68950c80-d1c9-473f-84f7-0470b2bcab77",
       "name": "Build Page Blueprints",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -81,14 +81,14 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "Write the page \"{{ $json.title }}\" for this client.\n\nPAGE BRIEF\n{{ $json.intent }}\n\nDESIGN BRIEF (shape the page around this exactly)\n{{ $json.design_brief }}\n\nCLIENT FACTS (the only facts you may state)\n{{ $json.shared_brief }}\n\nMinimum sections: {{ $json.minSections }}\nReturn only the fenced ```mdx block.",
+        "text": "=Write the page \"{{ $json.title }}\" for this client.\n\nPAGE BRIEF\n{{ $json.intent }}\n\nDESIGN BRIEF (shape the page around this exactly)\n{{ $json.design_brief }}\n\nCLIENT FACTS (the only facts you may state)\n{{ $json.shared_brief }}\n\nMinimum sections: {{ $json.minSections }}\nReturn only the fenced ```mdx block.",
         "options": {
           "systemMessage": "You are a senior front-end engineer and conversion copywriter who writes ONE page of a\nclient website as MDX. You write real, specific, locally-relevant copy - never lorem ipsum and never\ngeneric filler.\n\nHARD RULES\n1. OUTPUT: a single fenced block exactly like:\n   ```mdx\n   <section className=\"...\">...</section>\n   ```\n   Nothing before or after it. No commentary, no explanation, no multiple blocks.\n2. DESIGN FIDELITY: you MUST honour the supplied design brief. Use the stated grid, rhythm, density\n   and surface treatment. A reader must be able to tell this page apart from another site's page.\n3. COLOUR/TYPE: NEVER write hex codes, rgb(), or font names. Use the CSS variables provided:\n   var(--bg-canvas) var(--bg-surface) var(--bg-contrast) var(--text-primary) var(--text-muted)\n   var(--brand-primary) var(--brand-accent) var(--on-brand) var(--radius-card) var(--radius-button)\n   var(--section-gap) var(--container-width) var(--display-scale)\n   Use var(--font-heading) for headings and var(--font-body) for body text.\n4. CLASSES: all layout classes must be written INSIDE className=\"...\" so they are compiled. Tailwind\n   arbitrary values are fine and encouraged: p-[38px], grid-cols-[1.1fr_0.9fr], text-[1.0625rem].\n   NEVER nest minmax() inside grid-template-columns - browsers drop the whole declaration.\n5. EXACTLY ONE <h1> for the page. Use <h2> for section headings. Every <img> needs a descriptive alt.\n6. Use ONLY these interactive components, spelled exactly:\n   <QuickSummary points={[\"...\",\"...\"]} />\n   <CostComparisonTable title=\"...\" rows={[{label,detail,price}]} />\n   <FaqAccordion title=\"...\" items={[{q,a}]} />\n   <DoctorReviewedBadge name=\"...\" credentials=\"...\" date=\"...\" />\n   <Callout type=\"note|tip|warning\">text</Callout>\n   <InlineLeadCTA ctaText=\"...\" service=\"...\" phone=\"...\" />\n   Never import anything. Never use any other component.\n7. FACTS: never invent awards, review counts, certifications, statistics, or staff names. Only use\n   facts present in the business brief. If a fact is not given, write copy that does not need it.\n8. PROSE: UK/Indian English. Concrete nouns and numbers. No \"in today's fast-paced world\", no\n   \"unlock\", no \"elevate\", no \"delve\".\n9. Must include a <footer> element at the end of the page content with the business name, phone and\n   a copyright line.\n10. Sections: write at least the requested minimum, each as its own <section> element.\n11. Escape a bare \"<\" in prose as &lt; (e.g. \"&lt; 30 minutes\") or MDX will treat it as a tag.",
           "maxIterations": 2,
           "returnIntermediateSteps": false
         }
       },
-      "id": "a1e0c0de-Page Architect Agent-agent-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "7005ba2c-0047-4259-84c8-69585de0091b",
       "name": "Page Architect Agent",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.7,
@@ -110,7 +110,7 @@
         "sendBody": true,
         "specifyBody": "json",
         "bodyContentType": "json",
-        "jsonBody": "={\n  \"mdxBlocks\": [\n    \"{{ (($json.output || $json.text || '') + '').replace(/^\\s*```mdx\\s*/i, '').replace(/\\s*```\\s*$/i, '').replace(/\\\\/g, '\\\\\\\\').replace(/\"/g, '\\\\\"').replace(/\\n/g, '\\\\n') }}\"\n  ]\n}",
+        "jsonBody": "={{ JSON.stringify({ mdxBlocks: [ String($json.output ?? $json.text ?? '') ] }) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -125,7 +125,7 @@
           ]
         }
       },
-      "id": "a1e0c0de-Compile Gate-http-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "a8b2f3f7-3879-4ae9-8e71-67cdd7dc9cb0",
       "name": "Compile Gate",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -161,7 +161,7 @@
         },
         "options": {}
       },
-      "id": "a1e0c0de-MDX Valid?-if-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "b11b8758-626a-4b25-85f7-55f5dff6f040",
       "name": "MDX Valid?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
@@ -175,7 +175,7 @@
         "mode": "runOnceForAllItems",
         "jsCode": "// The compile gate rejected this page's MDX. This node does NOT block the run: a\n// tenant with one imperfect page is better than no tenant at all, and the site\n// is created with status 'preview' so nothing goes public unreviewed.\n//\n// What it does guarantee: the page is stored as PLAIN TEXT, never as broken JSX.\n// Broken JSX in the database would 500 a live page later.\n//\n// It maps over EVERY page, matching the one-row-per-page contract of\n// 'Assemble Valid Page'. Using .first() here would salvage a single page and\n// silently discard the other four.\nconst gates = $input.all();\nconst pages = $('Build Page Blueprints').all();\nconst agents = $('Page Architect Agent').all();\n\nif (!gates.length) throw new Error('No gate results on the salvage branch.');\n\n// Strips the fence and neutralises anything that looks like JSX so the stored\n// content is inert markdown rather than markup the renderer might execute.\nfunction inert(raw) {\n  return String(raw ?? '')\n    .replace(/^\\s*\\x60{3}mdx\\s*/i, '')\n    .replace(/\\s*\\x60{3}\\s*$/i, '')\n    .replace(/<\\/?[A-Za-z][^>]*>/g, '')\n    .replace(/\\{\\{?[\\s\\S]*?\\}\\}?/g, '')\n    .trim();\n}\n\nreturn gates.map((item, i) => {\n  const gate = item.json;\n  const page = pages[i]?.json ?? {};\n  const agent = agents[i]?.json ?? {};\n  const body = inert(agent.output ?? agent.text ?? '');\n\n  return {\n    json: {\n      ...page,\n      salvaged: true,\n      compile_error: String(gate.error ?? 'unknown compile error').slice(0, 500),\n      sections: [{ md: body.length > 120 ? body : '_Content for this page requires review._' }],\n      compiled_css: '',\n      mdx_ok: false,\n    },\n  };\n});"
       },
-      "id": "a1e0c0de-Salvage MDX Blocks-code-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "b295c5c8-3d77-4060-8da7-51d4707ed794",
       "name": "Salvage MDX Blocks",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -189,7 +189,7 @@
         "mode": "runOnceForAllItems",
         "jsCode": "// Turns each validated MDX block into a pages-row shape: ONE ROW PER PAGE.\n//\n// Why a map and not .first(): Code nodes preserve item order, and the agent\n// fans out one item per blueprint, so the gate results, the blueprints and the\n// agent outputs all line up by index. Using .first() here collapsed a\n// five-page site into a single page - execution 120787 measured exactly that\n// (Build Page Blueprints 5 items in, Assemble Valid Page 1 item out), which is\n// how a tenant ends up with one page instead of five.\nconst gates = $input.all();\nconst pages = $('Build Page Blueprints').all();\nconst agents = $('Page Architect Agent').all();\n\nif (!gates.length) throw new Error('Compile gate returned no items.');\n\nif (pages.length !== gates.length || agents.length !== gates.length) {\n  throw new Error(\n    'Fan-out counts diverged (gate=' + gates.length + ' pages=' + pages.length +\n    ' agent=' + agents.length + '). Refusing to zip by index - pages would be mis-paired.'\n  );\n}\n\n// Unwraps the fenced mdx block the agent is instructed to emit. Backticks are\n// escaped below because this block lives inside a template literal in the\n// generator - an unescaped one terminates the string and breaks the build.\nfunction unfence(raw) {\n  return String(raw ?? '')\n    .replace(/^\\s*\\x60{3}mdx\\s*/i, '')\n    .replace(/\\s*\\x60{3}\\s*$/i, '')\n    .trim();\n}\n\nreturn gates.map((item, i) => {\n  const gate = item.json;\n  const page = pages[i].json;\n  const agent = agents[i].json;\n\n  return {\n    json: {\n      ...page,\n      salvaged: false,\n      sections: [{ mdx: unfence(agent.output ?? agent.text ?? ''), anchor: 'content' }],\n      compiled_css: String(gate.css ?? ''),\n      css_bytes: Number(gate.cssBytes ?? 0),\n      warnings: gate.warnings ?? [],\n      mdx_ok: true,\n    },\n  };\n});"
       },
-      "id": "a1e0c0de-Assemble Valid Page-code-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "3bca11d6-2bf2-4c96-8cf0-3ca3ca4a1337",
       "name": "Assemble Valid Page",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -203,7 +203,7 @@
         "mode": "runOnceForAllItems",
         "jsCode": "// Converging node for the MDX IF's two branches.\n//\n// It must ONLY read its own input. An earlier version reached back with\n// $('Salvage MDX Blocks').all(), which n8n resolves by THROWING when that node\n// sits on the untaken branch of the IF - so a site with perfectly valid MDX on\n// every page failed the run with \"Node 'Salvage MDX Blocks' hasn't been\n// executed\" (execution 120787). $input is always defined: it is whichever\n// branch actually produced output.\n//\n// Both branch assemblers emit one item per page, so passing $input through\n// unchanged preserves the fan-out.\nconst items = $input.all();\nif (!items.length) {\n  throw new Error('No page output reached the merge from either MDX branch.');\n}\n\nreturn items.map((item) => ({ json: item.json }));"
       },
-      "id": "a1e0c0de-Merge Page Results-code-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "a508f899-aa43-4a5f-86b7-384948963269",
       "name": "Merge Page Results",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -243,7 +243,7 @@
           ]
         }
       },
-      "id": "a1e0c0de-Upsert Site-http-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "d9ef4f48-31b0-4aaa-88b6-20def67a16a6",
       "name": "Upsert Site",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -261,7 +261,7 @@
         "mode": "runOnceForAllItems",
         "jsCode": "// One item per page, each carrying the site_id returned by Upsert Site.\n//\n// This node is load-bearing. Without it, Upsert Pages receives the SINGLE item\n// Upsert Site returned and n8n runs the HTTP node exactly once - so a site would\n// get one page instead of five. Emitting one item per page makes the HTTP node\n// fan out correctly, and it also puts each page's own MDX and compiled CSS on\n// the item so the request body never has to reach back into an earlier node.\nconst site = $input.first().json;\nconst siteId = site.id;\nif (!siteId) {\n  throw new Error('Upsert Site returned no row id; cannot attach pages. Response: ' + JSON.stringify(site).slice(0, 300));\n}\n\nconst pages = $('Merge Page Results').all();\nif (!pages.length) throw new Error('No pages available to insert.');\n\nreturn pages.map((item) => {\n  const page = item.json;\n  return {\n    json: {\n      site_id: siteId,\n      slug: page.slug,\n      title: page.title,\n      business_name: page.business_name,\n      city: page.city,\n      sections: page.sections,\n      compiled_css: page.compiled_css || '',\n      salvaged: page.salvaged === true,\n      seo_description: page.title + ' in ' + page.city + ' - ' + page.business_name,\n    },\n  };\n});"
       },
-      "id": "a1e0c0de-Expand Pages For Upsert-code-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "0fb06bd6-ff16-4a82-88dc-146cfd6f1254",
       "name": "Expand Pages For Upsert",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -301,7 +301,7 @@
           ]
         }
       },
-      "id": "a1e0c0de-Upsert Pages-http-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "e2889a05-0d1a-4ced-8963-5919143187bf",
       "name": "Upsert Pages",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -333,7 +333,7 @@
           ]
         }
       },
-      "id": "a1e0c0de-Seed Cornerstone Blogs-http-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "24d0738e-79b1-468e-8e14-8d5cebb0e12a",
       "name": "Seed Cornerstone Blogs",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -369,7 +369,7 @@
           ]
         }
       },
-      "id": "a1e0c0de-Revalidate Tenant-http-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "a1e1e2c4-13b4-4c84-8135-2fedda2d6b76",
       "name": "Revalidate Tenant",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -387,7 +387,7 @@
         "mode": "runOnceForAllItems",
         "jsCode": "// Builds the webhook response object.\n//\n// This is a Code node rather than an expression on the Respond node on purpose:\n// a multi-line JSON literal inside a Respond node's expression field is easy to\n// get wrong (an unbalanced `{{` fails validation at runtime, not at save time),\n// and the proven pattern in this codebase is Respond-with `={{ $json }}`.\nconst request = $('Normalize Site Request').first().json;\nconst pages = $('Merge Page Results').all();\n\nreturn [\n  {\n    json: {\n      status: 'created',\n      slug: request.slug,\n      domain: request.domain,\n      preview_url: 'https://' + request.preview_subdomain,\n      pages_generated: pages.length,\n      pages_salvaged: pages.filter((item) => item.json.salvaged === true).length,\n      design: pages.length\n        ? {\n            shell: pages[0].json.genome.shell_archetype,\n            nav: pages[0].json.genome.nav_topology,\n            color_mode: pages[0].json.genome.color_mode,\n            rhythm: pages[0].json.rhythm,\n          }\n        : null,\n    },\n  },\n];"
       },
-      "id": "a1e0c0de-Build Site Response-code-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "735350bb-15ed-4b12-87a1-e4c7e52ba6b2",
       "name": "Build Site Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -402,7 +402,7 @@
         "responseBody": "={{ $json }}",
         "options": {}
       },
-      "id": "a1e0c0de-Respond - Site Created-res-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "e28a4adc-03bb-4faa-8b55-5f1f6815df23",
       "name": "Respond - Site Created",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -424,7 +424,7 @@
           "temperature": 0.4
         }
       },
-      "id": "a1e0c0de-Model - Gemini Argon-lm-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "dd36eca2-e03d-4257-8c64-bb63d648face",
       "name": "Model - Gemini Argon",
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.3,

@@ -1,0 +1,1 @@
+{"valid":false,"blockIndex":null,"error":"Tailwind compilation failed: Cannot find module '../lightningcss.linux-x64-musl.node'\nRequire stack:\n- /app/node_modules/lightningcss/node/index.js","hint":"Fix the MDX syntax in the listed block, then POST again."}

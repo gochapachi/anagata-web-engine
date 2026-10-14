@@ -8,7 +8,7 @@
         "responseMode": "responseNode",
         "options": {}
       },
-      "id": "a1e0c0de-Webhook - Publish Next.js Blog-wh-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "6b223fe1-0a02-4afd-826c-5fc850d5655e",
       "name": "Webhook - Publish Next.js Blog",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
@@ -29,7 +29,7 @@
           ]
         }
       },
-      "id": "a1e0c0de-Schedule - Daily Blog Fanout-sch-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "d3bfef5a-df38-4f3d-83d0-581949e18039",
       "name": "Schedule - Daily Blog Fanout",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
@@ -75,7 +75,7 @@
           ]
         }
       },
-      "id": "a1e0c0de-Get Live Sites-http-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "dd9808e6-f7db-465a-8ca2-23bcae4552e7",
       "name": "Get Live Sites",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -93,7 +93,7 @@
         "batchSize": 1,
         "options": {}
       },
-      "id": "a1e0c0de-Loop Live Sites-loop-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "fa9cedc3-4c98-499c-884e-02649cf84cd3",
       "name": "Loop Live Sites",
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
@@ -107,7 +107,7 @@
         "mode": "runOnceForAllItems",
         "jsCode": "// Two entry points converge here:\n//   - the webhook, which carries an explicit domain (and optionally a topic)\n//   - the daily schedule, whose loop item is a site row\n// Both become the same shape.\nconst item = $input.first().json;\n\nconst fromWebhook = item.body ?? null;\nconst domain = String(\n  (fromWebhook && fromWebhook.domain) || item.domain || ''\n).toLowerCase().replace(/^https?:\\/\\//, '').replace(/\\/.*$/, '').replace(/^www\\./, '').trim();\n\nif (!domain) throw new Error('domain is required (or run from the schedule over live sites).');\n\n// The origin value decides the exit path at the end of the run: the webhook lane\n// must respond to its caller, the scheduled lane must loop to the next site. Set\n// here because this is the only node that knows which trigger fired.\nconst origin = fromWebhook ? 'webhook' : 'schedule';\n\nreturn [\n  {\n    json: {\n      domain,\n      origin,\n      topic_override: fromWebhook?.topic_override ? String(fromWebhook.topic_override) : null,\n      count: Math.min(Math.max(Number(fromWebhook?.count ?? 1), 1), 5),\n      requested_at: new Date().toISOString(),\n    },\n  },\n];"
       },
-      "id": "a1e0c0de-Normalize Blog Request-code-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "d11ef928-e23e-4943-86aa-db41e4292f14",
       "name": "Normalize Blog Request",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -153,7 +153,7 @@
           ]
         }
       },
-      "id": "a1e0c0de-Get Tenant Context-http-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "d9ce45a4-d6a7-4127-8b79-2626441fe559",
       "name": "Get Tenant Context",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -171,7 +171,7 @@
         "mode": "runOnceForAllItems",
         "jsCode": "const rows = $input.all();\nconst site = rows[0]?.json;\nif (!site || !site.id) {\n  throw new Error('No tenant found for domain ' + $('Normalize Blog Request').first().json.domain);\n}\nconst request = $('Normalize Blog Request').first().json;\n// The origin value is carried forward so the exit branch can tell lanes apart.\nreturn [{ json: { ...request, site } }];"
       },
-      "id": "a1e0c0de-Check Tenant Exists-code-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "fe36f7c4-3880-482e-8d54-94469a8cb9e6",
       "name": "Check Tenant Exists",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -217,7 +217,7 @@
           ]
         }
       },
-      "id": "a1e0c0de-Get Existing Posts-http-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "e25da0d2-8a3c-4ae1-8c80-3cef2c0e4c87",
       "name": "Get Existing Posts",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -235,7 +235,7 @@
         "mode": "runOnceForAllItems",
         "jsCode": "// Topic selection is DETERMINISTIC, not LLM-driven, so a duplicate can never be\n// \"accidentally\" chosen. It rotates service x angle and filters out any angle\n// already present in the tenant's existing post titles/slugs.\nconst context = $('Check Tenant Exists').first().json;\nconst existing = $input.all().map((item) => item.json);\nconst site = context.site;\nconst services = Array.isArray(site.business_info?.services) ? site.business_info.services : [];\nconst city = site.city || 'the local area';\n\nconst angles = [\n  { key: 'cost', label: 'Cost', title: (s) => s + ' Cost in ' + city + ': A Transparent Breakdown' },\n  { key: 'process', label: 'Process', title: (s) => s + ': What Actually Happens, Step by Step' },\n  { key: 'candidates', label: 'Who needs it', title: (s) => 'Do You Need ' + s + '? Signs It Is Time' },\n  { key: 'aftercare', label: 'Aftercare', title: (s) => 'After ' + s + ': Recovery and Aftercare Timeline' },\n  { key: 'compare', label: 'Comparison', title: (s) => s + ' vs the Alternatives: An Honest Comparison' },\n  { key: 'myths', label: 'Myths', title: (s) => 'Common Myths About ' + s + ', Answered' },\n];\n\nif (!services.length) services.push('Our Services');\n\nconst existingTitles = existing.map((post) => String(post.title ?? '').toLowerCase());\nconst existingSlugs = existing.map((post) => String(post.slug ?? '').toLowerCase());\n\nconst slugify = (value) =>\n  String(value).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 72);\n\nconst candidates = [];\nfor (const service of services) {\n  for (const angle of angles) {\n    const title = angle.title(service);\n    const slug = slugify(title);\n    const taken =\n      existingTitles.includes(title.toLowerCase()) ||\n      existingSlugs.includes(slug) ||\n      existingTitles.some((existingTitle) => existingTitle.includes(slugify(service)) && existingTitle.includes(angle.key));\n    if (!taken) candidates.push({ service, angle: angle.key, angleLabel: angle.label, title, slug });\n  }\n}\n\nconst wanted = context.count || 1;\nif (!candidates.length) {\n  throw new Error('No unused topic remains for ' + site.domain + '. Add a service or a new angle before publishing.');\n}\n\n// Spread the picks across services rather than taking the first N of one service.\nconst picked = [];\nconst usedServices = new Set();\nfor (const candidate of candidates) {\n  if (picked.length >= wanted) break;\n  if (usedServices.has(candidate.service) && picked.length < Math.min(wanted, services.length)) continue;\n  picked.push(candidate);\n  usedServices.add(candidate.service);\n}\nfor (const candidate of candidates) {\n  if (picked.length >= wanted) break;\n  if (!picked.includes(candidate)) picked.push(candidate);\n}\n\nreturn picked.map((candidate) => ({\n  json: {\n    ...context,\n    topic: context.topic_override ?? candidate.title,\n    slug: candidate.slug,\n    service: candidate.service,\n    angle: candidate.angleLabel,\n    existing_post_titles: existing.map((post) => post.title).slice(0, 25),\n    existing_post_slugs: existing.map((post) => post.slug).slice(0, 25),\n  },\n}));"
       },
-      "id": "a1e0c0de-Choose Topics (No Duplicates)-code-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "f3ac060f-f4dd-49a1-81d6-75578dd225c3",
       "name": "Choose Topics (No Duplicates)",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -247,14 +247,14 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "Write the article \"{{ $json.topic }}\" for {{ $json.site.business_info.name }} ({{ $json.site.city }}).\n\nTARGET SERVICE: {{ $json.service }}\nANGLE: {{ $json.angle }}\n\nBUSINESS FACTS (the only facts you may state)\nName: {{ $json.site.business_info.name }}\nPhone: {{ $json.site.business_info.phone }}\nCity: {{ $json.site.city }}\nServices: {{ ($json.site.business_info.services || []).join(' | ') }}\nNamed professional: {{ $json.site.business_info.doctor_or_lead ? ($json.site.business_info.doctor_or_lead.name + ' ' + ($json.site.business_info.doctor_or_lead.credentials || '')) : 'NONE SUPPLIED - omit DoctorReviewedBadge' }}\nE-E-A-T level: {{ $json.site.business_info.authority_level || 'general practitioner content' }}\nReading level: {{ $json.site.business_info.reading_level || 'plain, accessible' }}\nInternal articles to link: {{ $json.existing_post_titles.join(' | ') || 'none yet' }}\n\nReturn only the fenced ```mdx block.",
+        "text": "=Write the article \"{{ $json.topic }}\" for {{ $json.site.business_info.name }} ({{ $json.site.city }}).\n\nTARGET SERVICE: {{ $json.service }}\nANGLE: {{ $json.angle }}\n\nBUSINESS FACTS (the only facts you may state)\nName: {{ $json.site.business_info.name }}\nPhone: {{ $json.site.business_info.phone }}\nCity: {{ $json.site.city }}\nServices: {{ ($json.site.business_info.services || []).join(' | ') }}\nNamed professional: {{ $json.site.business_info.doctor_or_lead ? ($json.site.business_info.doctor_or_lead.name + ' ' + ($json.site.business_info.doctor_or_lead.credentials || '')) : 'NONE SUPPLIED - omit DoctorReviewedBadge' }}\nE-E-A-T level: {{ $json.site.business_info.authority_level || 'general practitioner content' }}\nReading level: {{ $json.site.business_info.reading_level || 'plain, accessible' }}\nInternal articles to link: {{ $json.existing_post_titles.join(' | ') || 'none yet' }}\n\nReturn only the fenced ```mdx block.",
         "options": {
           "systemMessage": "You are an experienced health/professional-services writer producing ONE blog article in MDX\nfor a real business's website. You write to be read by a person deciding whether to book, and to be\nquoted by an AI search engine.\n\nHARD RULES\n1. OUTPUT: a single fenced block exactly like:\n   ```mdx\n   <QuickSummary points={[\"...\",\"...\"]} />\n\n   ## Heading\n\n   Body text...\n\n   <FaqAccordion items={[{q:\"...\",a:\"...\"}]} />\n   ```\n   Nothing before or after it. No commentary, no second block.\n2. LENGTH: 1400-1900 words of body copy. Short paragraphs (2-4 sentences).\n3. STRUCTURE: 5-8 <h2> sections. Use <h3> for sub-points. Never use <h1> - the page supplies it.\n4. Use ONLY these components, spelled exactly:\n   <QuickSummary points={[\"...\"]} />\n   <CostComparisonTable title=\"...\" rows={[{label,detail,price}]} />\n   <FaqAccordion title=\"...\" items={[{q,a}]} />\n   <DoctorReviewedBadge name=\"...\" credentials=\"...\" date=\"...\" />\n   <Callout type=\"note|tip|warning\">text</Callout>\n   <InlineLeadCTA ctaText=\"...\" service=\"...\" phone=\"...\" />\n   Never import anything. Never invent another component.\n5. MUST contain, in this order: <QuickSummary>, at least 4 <h2> sections, one\n   <CostComparisonTable>, one <InlineLeadCTA>, and a closing <FaqAccordion> with 5 questions.\n6. INTERNAL LINKS: link to 2-4 of the supplied existing articles using markdown links, and to the\n   service page /services/<service-slug> at least once.\n7. FACTS: never invent statistics, study citations, awards, review counts or staff names. Describe\n   clinical/professional reality in general terms instead of citing a number you were not given.\n   Prices must be clearly framed as indicative ranges, never as a quote.\n8. If a <DoctorReviewedBadge> is used, the name must be the one supplied in the brief. If none was\n   supplied, omit the component entirely.\n9. VOICE: UK/Indian English. Direct, specific, no hype. Banned phrases: \"in today's fast-paced\n   world\", \"unlock\", \"elevate\", \"delve\", \"game-changer\", \"look no further\".\n10. Escape a bare \"<\" in prose as &lt; or MDX will treat it as a tag.",
           "maxIterations": 2,
           "returnIntermediateSteps": false
         }
       },
-      "id": "a1e0c0de-Blog Author Agent-agent-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "8449ffae-18f3-4b35-8f23-386ffa1249f3",
       "name": "Blog Author Agent",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.7,
@@ -276,7 +276,7 @@
         "sendBody": true,
         "specifyBody": "json",
         "bodyContentType": "json",
-        "jsonBody": "={\n  \"mdxBlocks\": [\n    \"{{ (($json.output || $json.text || '') + '').replace(/^\\s*```mdx\\s*/i, '').replace(/\\s*```\\s*$/i, '').replace(/\\\\/g, '\\\\\\\\').replace(/\"/g, '\\\\\"').replace(/\\n/g, '\\\\n') }}\"\n  ]\n}",
+        "jsonBody": "={{ JSON.stringify({ mdxBlocks: [ String($json.output ?? $json.text ?? '') ] }) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -291,7 +291,7 @@
           ]
         }
       },
-      "id": "a1e0c0de-Compile Gate-http-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "a8b2f3f7-3879-4ae9-8e71-67cdd7dc9cb0",
       "name": "Compile Gate",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -327,7 +327,7 @@
         },
         "options": {}
       },
-      "id": "a1e0c0de-MDX Valid?-if-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "b11b8758-626a-4b25-85f7-55f5dff6f040",
       "name": "MDX Valid?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
@@ -341,7 +341,7 @@
         "mode": "runOnceForAllItems",
         "jsCode": "// The article failed to compile. Publish it as inert plain markdown rather than\n// broken JSX: an imperfect article is recoverable, a 500 on /blog/<slug> is not.\nconst gate = $input.first().json;\nconst context = $('Choose Topics (No Duplicates)').first().json;\nconst agentOutput = $('Blog Author Agent').first().json;\nconst raw = String(agentOutput.output ?? agentOutput.text ?? '');\n\nconst stripped = raw\n  .replace(/^\\s*```mdx\\s*/i, '')\n  .replace(/\\s*```\\s*$/i, '')\n  .replace(/<\\/?[A-Za-z][^>]*>/g, '')\n  .trim();\n\nconst words = stripped.split(/\\s+/).filter(Boolean).length;\nif (words < 400) {\n  throw new Error('Salvaged article is too short to publish (' + words + ' words) and the original failed to compile: ' + String(gate.error).slice(0, 300));\n}\n\nreturn [\n  {\n    json: {\n      ...context,\n      content_mdx: stripped,\n      compiled_css: '',\n      salvaged: true,\n      compile_error: String(gate.error ?? '').slice(0, 500),\n      reading_time_mins: Math.max(1, Math.round(words / 220)),\n    },\n  },\n];"
       },
-      "id": "a1e0c0de-Salvage Blog MDX-code-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "202fac47-5e84-4c27-8be9-4cfa5c9c3a27",
       "name": "Salvage Blog MDX",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -355,7 +355,7 @@
         "mode": "runOnceForAllItems",
         "jsCode": "const gate = $input.first().json;\nconst context = $('Choose Topics (No Duplicates)').first().json;\nconst agentOutput = $('Blog Author Agent').first().json;\nconst raw = String(agentOutput.output ?? agentOutput.text ?? '');\n\nconst content = raw\n  .replace(/^\\s*```mdx\\s*/i, '')\n  .replace(/\\s*```\\s*$/i, '')\n  .trim();\n\nconst words = content.split(/\\s+/).filter(Boolean).length;\nif (words < 500) {\n  throw new Error('Article is only ' + words + ' words. Refusing to publish thin content on ' + context.domain + '.');\n}\n\n// The first paragraph of prose becomes the excerpt, with any component tags removed.\nconst excerpt =\n  content\n    .split('\\n')\n    .map((line) => line.trim())\n    .filter((line) => line && !line.startsWith('<') && !line.startsWith('#') && !line.startsWith('-'))\n    .join(' ')\n    .slice(0, 300) || context.topic;\n\nconst business = context.site.business_info ?? {};\n\nreturn [\n  {\n    json: {\n      ...context,\n      content_mdx: content,\n      compiled_css: String(gate.css ?? ''),\n      warnings: gate.warnings ?? [],\n      salvaged: false,\n      excerpt,\n      word_count: words,\n      reading_time_mins: Math.max(1, Math.round(words / 220)),\n      seo_title: context.topic.length > 60 ? context.topic.slice(0, 57) + '...' : context.topic,\n      meta_description: excerpt.slice(0, 155),\n      author: business.doctor_or_lead\n        ? { name: business.doctor_or_lead.name, credentials: business.doctor_or_lead.credentials }\n        : { name: business.name },\n    },\n  },\n];"
       },
-      "id": "a1e0c0de-Assemble Blog Post-code-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "0dc9fea3-839d-4ced-876e-420844631448",
       "name": "Assemble Blog Post",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -369,7 +369,7 @@
         "mode": "runOnceForAllItems",
         "jsCode": "// Converging node for the blog MDX IF's two branches.\n//\n// Reads ONLY its own input: reaching back with $('Salvage Blog MDX').all() would\n// throw on every run where the article compiled, because that node lives on the\n// untaken branch of the IF. Same defect as Merge Page Results.\nconst items = $input.all();\nif (!items.length) throw new Error('No blog output reached the merge from either MDX branch.');\nreturn items.map((item) => ({ json: item.json }));"
       },
-      "id": "a1e0c0de-Merge Blog Results-code-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "112475d3-32ae-4792-86f7-ea70e1e69a46",
       "name": "Merge Blog Results",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -383,7 +383,7 @@
         "mode": "runOnceForAllItems",
         "jsCode": "// Flattens the merged blog item into exactly what the insert needs, with every\n// value already a plain JSON-safe scalar. The HTTP node below then JSON.stringify's\n// these fields instead of interpolating raw article MDX into a quoted string -\n// an article full of quotes and newlines would otherwise produce invalid JSON\n// and a silent 400 from PostgREST.\nconst post = $input.first().json;\nconst site = post.site ?? {};\nconst business = site.business_info ?? {};\n\nif (!site.id) throw new Error('Missing site id on the blog item.');\nif (!post.content_mdx || post.content_mdx.length < 400) {\n  throw new Error('Refusing to insert a thin article (' + (post.content_mdx || '').length + ' chars).');\n}\n\nreturn [\n  {\n    json: {\n      site_id: site.id,\n      domain: post.domain,\n      slug: post.slug,\n      title: post.topic,\n      excerpt: post.excerpt,\n      content_mdx: post.content_mdx,\n      compiled_css: post.compiled_css || '',\n      category: post.service,\n      tags: [post.service],\n      author: post.author ?? { name: business.name },\n      seo_title: post.seo_title,\n      meta_description: post.meta_description,\n      focus_keyword: post.service + ' ' + (site.city || ''),\n      reading_time_mins: post.reading_time_mins,\n    },\n  },\n];"
       },
-      "id": "a1e0c0de-Prepare Post Row-code-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "c625bfa8-844a-4e23-89ad-73b6f859050c",
       "name": "Prepare Post Row",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -423,7 +423,7 @@
           ]
         }
       },
-      "id": "a1e0c0de-Upsert Post-http-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "e1af9d23-1645-42e3-8af7-57c9303a1554",
       "name": "Upsert Post",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -459,7 +459,7 @@
           ]
         }
       },
-      "id": "a1e0c0de-Revalidate Tenant Blog-http-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "9e4e08ec-82e3-49d4-8a4e-b55d6647236e",
       "name": "Revalidate Tenant Blog",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -478,7 +478,7 @@
         "responseBody": "={{ $json }}",
         "options": {}
       },
-      "id": "a1e0c0de-Respond - Blog Published-res-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "c9975cd0-9d9a-4119-8443-d3cc037f1543",
       "name": "Respond - Blog Published",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
@@ -492,7 +492,7 @@
         "mode": "runOnceForAllItems",
         "jsCode": "const post = $('Prepare Post Row').first().json;\nreturn [\n  {\n    json: {\n      status: $('Merge Blog Results').first().json.salvaged ? 'published_unverified' : 'published',\n      domain: post.domain,\n      slug: post.slug,\n      url: 'https://' + post.domain + '/blog/' + post.slug,\n      title: post.title,\n      words: $('Merge Blog Results').first().json.word_count ?? null,\n      revalidated: true,\n    },\n  },\n];"
       },
-      "id": "a1e0c0de-Build Blog Response-code-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "d87e4f29-bf39-42c1-8375-03086dc67cf8",
       "name": "Build Blog Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -524,7 +524,7 @@
         },
         "options": {}
       },
-      "id": "a1e0c0de-Route After Publish-if-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "f5e28a91-265a-4b68-8a11-4a599532dbfe",
       "name": "Route After Publish",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
@@ -546,7 +546,7 @@
           "temperature": 0.4
         }
       },
-      "id": "a1e0c0de-Model - Gemini Argon Blog-lm-4b1e-9f2a-8c3d5e6f7a8b",
+      "id": "3327c950-c2eb-40fc-8d3b-1921900e7f49",
       "name": "Model - Gemini Argon Blog",
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.3,

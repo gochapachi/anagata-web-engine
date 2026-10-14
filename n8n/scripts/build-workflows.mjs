@@ -19,6 +19,7 @@
 import { writeFile, mkdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const outDir = path.join(here, '..', 'workflows');
@@ -106,8 +107,29 @@ function resetPositions() {
   positionCounter = 0;
 }
 
+/**
+ * Node id, max 36 chars.
+ *
+ * HARD CONSTRAINT, discovered the expensive way: n8n stores nodeId in a
+ * varchar(36) column, and activating a workflow inserts one row per node into
+ * workflow_publication_trigger_status. Any longer id makes the INSERT fail with
+ * "value too long for type character varying(36)" and n8n retries forever
+ * (upstream issue #40847). An earlier version put the node NAME into the middle
+ * of a fake UUID, which produced 45-66 char ids and broke every activation.
+ *
+ * Now a real 36-char UUID: 8-4-4-4-12 hex. The suffix becomes a stable hash so
+ * ids stay deterministic across regenerations - n8n treats a changed id as a
+ * different node, and stable ids keep deployments idempotent.
+ */
 function id(suffix) {
-  return `a1e0c0de-${String(suffix).padStart(4, '0')}-4b1e-9f2a-8c3d5e6f7a8b`;
+  const hash = createHash('sha1').update(String(suffix)).digest('hex');
+  return [
+    hash.slice(0, 8),
+    hash.slice(8, 12),
+    '4' + hash.slice(13, 16),
+    '8' + hash.slice(17, 20),
+    hash.slice(20, 32),
+  ].join('-');
 }
 
 /* ---------------------------------------------------------------- helpers */
@@ -221,10 +243,18 @@ function ifNode({ name, leftValue, rightValue, operator = { type: 'boolean', ope
 }
 
 function agentNode({ name, systemMessage, text }) {
+  // n8n only evaluates {{ ... }} when the value STARTS WITH '='. Without it the
+  // field is treated as a literal string and the LLM receives raw
+  // "{{ $json.title }}" - it then replies asking for the variables to be filled
+  // in, which is exactly what execution 120854 returned for 3 of 5 pages.
+  // Prefixing '=' makes n8n resolve the expressions per item, so a 5-item
+  // fan-out produces 5 correctly-prompted calls.
+  const prompt = text.startsWith('=') ? text : `=${text}`;
+
   return {
     parameters: {
       promptType: 'define',
-      text,
+      text: prompt,
       options: {
         systemMessage,
         maxIterations: 2,
@@ -558,11 +588,12 @@ Return only the fenced \`\`\`mdx block.`,
     name: 'Compile Gate',
     method: 'POST',
     url: `${ENGINE_URL}/api/compile`,
-    jsonBody: `={
-  "mdxBlocks": [
-    "{{ (($json.output || $json.text || '') + '').replace(/^\\s*\`\`\`mdx\\s*/i, '').replace(/\\s*\`\`\`\\s*$/i, '').replace(/\\\\/g, '\\\\\\\\').replace(/"/g, '\\\\"').replace(/\\n/g, '\\\\n') }}"
-  ]
-}`,
+    // The MDX is handed to the compiler via JSON.stringify rather than a chain
+    // of regex .replace() calls inside an expression: a page body is full of
+    // quotes, backslashes and newlines, and hand-rolled escaping produced
+    // invalid JSON that the gate rejected. JSON.stringify is correct by
+    // construction. The compiler tolerates the ```mdx fence itself.
+    jsonBody: `={{ JSON.stringify({ mdxBlocks: [ String($json.output ?? $json.text ?? '') ] }) }}`,
     headers: [
       { name: 'Content-Type', value: 'application/json' },
       { name: 'x-compile-secret', value: COMPILE_SECRET },
@@ -1093,11 +1124,9 @@ Return only the fenced \`\`\`mdx block.`,
     name: 'Compile Gate',
     method: 'POST',
     url: `${ENGINE_URL}/api/compile`,
-    jsonBody: `={
-  "mdxBlocks": [
-    "{{ (($json.output || $json.text || '') + '').replace(/^\\s*\`\`\`mdx\\s*/i, '').replace(/\\s*\`\`\`\\s*$/i, '').replace(/\\\\/g, '\\\\\\\\').replace(/"/g, '\\\\"').replace(/\\n/g, '\\\\n') }}"
-  ]
-}`,
+    // Same JSON.stringify fix as the site builder's gate: a full article full of
+    // quotes and newlines cannot be escaped by hand reliably.
+    jsonBody: `={{ JSON.stringify({ mdxBlocks: [ String($json.output ?? $json.text ?? '') ] }) }}`,
     headers: [
       { name: 'Content-Type', value: 'application/json' },
       { name: 'x-compile-secret', value: COMPILE_SECRET },
@@ -1448,7 +1477,40 @@ for (const [file, definition] of [
       }
     }
   }
+  // An LLM agent's prompt is only interpolated by n8n when the field STARTS WITH
+  // '='. Without it the agent receives the literal text "{{ $json.title }}" and
+  // replies asking for the variables - which is what execution 120854 returned
+  // for 3 of its 5 pages. Hard requirement, checked here.
+  for (const node of definition.nodes) {
+    if (!/langchain\.agent/.test(node.type ?? '')) continue;
+    const prompt = node.parameters?.text;
+    if (typeof prompt !== 'string' || !prompt.length) {
+      throw new Error(`${file}: agent "${node.name}" has no text prompt`);
+    }
+    if (!prompt.startsWith('=')) {
+      throw new Error(
+        `${file}: agent "${node.name}" prompt does not start with '=' - n8n will send raw ` +
+          '{{ ... }} to the LLM instead of resolving it'
+      );
+    }
+  }
+  console.log(`[ok] ${file}: agent prompts are expressions (leading '=')`);
+
   console.log(`[ok] ${file}: every connection target resolves to a real node`);
+
+  // n8n stores nodeId in varchar(36) and writes one row per node to
+  // workflow_publication_trigger_status on activation. A longer id makes that
+  // INSERT fail with "value too long for type character varying(36)", which n8n
+  // retries in a loop forever (upstream issue #40847). Hard ceiling, checked here.
+  for (const node of definition.nodes) {
+    if (String(node.id).length > 36) {
+      throw new Error(
+        `${file}: node "${node.name}" has a ${String(node.id).length}-char id (max 36) - ` +
+          'this breaks n8n activation with "value too long for type character varying(36)"'
+      );
+    }
+  }
+  console.log(`[ok] ${file}: every node id is <= 36 chars (n8n varchar limit)`);
 
   // Regression guard for the two defects that were found by reading the emitted
   // workflows rather than by importing them:
