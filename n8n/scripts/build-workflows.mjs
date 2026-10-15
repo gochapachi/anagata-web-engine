@@ -24,9 +24,13 @@ import { createHash } from 'node:crypto';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const outDir = path.join(here, '..', 'workflows');
 
-/** Credential reused from the existing workflows: the working Gemini/FreeLLM path. */
-const GEMINI_CREDENTIAL = { openAiApi: { id: 'vIlI3yqZbj1qnCvG', name: 'Gemini' } };
-const GEMINI_MODEL = 'gemini-argon';
+/** Model provider — FreeLLM (https://freellm.anagataitsolutions.in) via the
+ *  FreeLLM n8n credential (id NexReT9zk3GuX1sO). The user changed the live
+ *  model node to `auto:free_models` and asked to KEEP it: this constant is the
+ *  source of truth, so regenerating the workflow can never silently revert to
+ *  gemini-argon. */
+const LLM_CREDENTIAL = { openAiApi: { id: 'NexReT9zk3GuX1sO', name: 'FreeLLM' } };
+const LLM_MODEL = 'auto:free_models';
 
 /**
  * Runtime configuration for the generated workflows.
@@ -287,7 +291,7 @@ function agentNode({ name, systemMessage, text }) {
   };
 }
 
-function lmNode({ name, model = GEMINI_MODEL }) {
+function lmNode({ name, model = LLM_MODEL }) {
   return {
     parameters: {
       model: { __rl: true, value: model, mode: 'list', cachedResultName: model },
@@ -299,7 +303,7 @@ function lmNode({ name, model = GEMINI_MODEL }) {
     type: '@n8n/n8n-nodes-langchain.lmChatOpenAi',
     typeVersion: 1.3,
     position: nextPosition(),
-    credentials: GEMINI_CREDENTIAL,
+    credentials: LLM_CREDENTIAL,
   };
 }
 

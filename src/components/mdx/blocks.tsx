@@ -16,6 +16,7 @@ import {
   ScrollProgress,
   Marquee,
 } from '@/components/motion';
+import { ParticleField, Scene3D, SmoothScroll } from '@/components/motion/three-d';
 
 export interface QuickSummaryProps {
   points?: string[];
@@ -254,6 +255,10 @@ export const MDX_COMPONENTS = {
   StickyScene,
   ScrollProgress,
   Marquee,
+  // Heavy 3D / particle / smooth-scroll layer (dynamic-imported, client only)
+  ParticleField,
+  Scene3D,
+  SmoothScroll,
 } as const;
 
 /** Used by the workflow prompt so the agent knows exactly what it may emit. */

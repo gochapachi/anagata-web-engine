@@ -4,6 +4,7 @@ import { getSite, getPages } from '@/lib/supabase';
 import { pickGenome } from '@/lib/genome';
 import { googleFontsHref, effectiveNavTopology } from '@/components/shells/types';
 import { SHELLS } from '@/components/shells';
+import { SmoothScroll } from '@/components/motion/three-d';
 import type { DesignGenome, SiteRow } from '@/lib/types';
 
 // The shell primitives (.shell-container, .shell-section, .shell-display, ...) MUST
@@ -128,17 +129,24 @@ export default async function TenantLayout({
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       ) : null}
       <div className={`nav-${topology}`}>
-        <Shell
-          site={site}
-          genome={genome}
-          nav={nav}
-          brandName={business.name ?? site.domain}
-          cta={cta}
-          phone={business.phone}
-          footer={buildFooter(site, nav)}
-        >
-          {children}
-        </Shell>
+        {/* SmoothScroll is a client component; the Shell and its children stay
+            server-rendered and pass through the display:contents wrapper. Lenis
+            eases native scroll site-wide and stays in lock-step with GSAP's
+            ScrollTrigger, so pinned scenes (StickyScene) don't jitter. Reduced
+            motion keeps native scroll. */}
+        <SmoothScroll>
+          <Shell
+            site={site}
+            genome={genome}
+            nav={nav}
+            brandName={business.name ?? site.domain}
+            cta={cta}
+            phone={business.phone}
+            footer={buildFooter(site, nav)}
+          >
+            {children}
+          </Shell>
+        </SmoothScroll>
       </div>
     </>
   );
