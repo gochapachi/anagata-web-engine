@@ -153,15 +153,19 @@ export const getSite = (host: string) => {
  */
 export const getPage = (host: string, siteId: string, slug: string) => {
   const normalized = normalizeHost(host);
+  const isHome = !slug || slug === '/' || slug === '';
   return unstable_cache(
     async (): Promise<PageRow | null> => {
+      const slugClause = isHome
+        ? 'or=(slug.eq.,slug.eq.%2F)'
+        : `slug=${eq(slug)}`;
       const rows = await postgrest<PageRow[]>(
         'pages',
-        `select=*&site_id=${eq(siteId)}&slug=${eq(slug)}&published=is.true&limit=1`
+        `select=*&site_id=${eq(siteId)}&${slugClause}&published=is.true&limit=1`
       );
       return rows[0] ?? null;
     },
-    ['page', normalized, slug],
+    ['page', normalized, isHome ? '/' : slug],
     { tags: [siteTag(normalized)], revalidate: 3600 }
   )();
 };
