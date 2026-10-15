@@ -120,7 +120,7 @@
             },
             {
               "name": "x-compile-secret",
-              "value": ""
+              "value": "b7a612d6a9c940982c40210ec70ce3e01008d2abd2edfd593a7e420c0971f0c5"
             }
           ]
         }
