@@ -1,3 +1,4 @@
+import { MobileNavToggle } from './MobileNav';
 import type { ShellProps } from './types';
 
 /**
@@ -72,21 +73,32 @@ function Masthead({
   cta: ShellProps['cta'];
   phone?: string;
 }) {
+  // The raw phone string is NOT rendered here. It appeared as unstyled loose
+  // text directly under the header on both audited sites; phone numbers are
+  // styled links or the CTA's job, so this masthead renders a tel: link.
+  const phoneHref = phone ? `tel:${String(phone).replace(/[^\d+]/g, '')}` : null;
+
   return (
     <div className="shell-container">
       <div
         style={{
+          alignItems: 'center',
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'center',
           gap: '1rem',
           paddingBlock: '0.6rem',
           fontSize: '0.78rem',
           borderBottom: '1px solid color-mix(in srgb, var(--text-primary) 12%, transparent)',
         }}
       >
-        <span className="shell-eyebrow">{phone ?? ''}</span>
-        <span className="shell-eyebrow">{cta?.label ?? 'Book a consultation'}</span>
+        {phoneHref ? (
+          <a className="shell-eyebrow" href={phoneHref} style={{ color: 'inherit', textDecoration: 'none' }}>
+            {phone}
+          </a>
+        ) : (
+          <span className="shell-eyebrow">{cta?.label ?? ''}</span>
+        )}
+        <span className="shell-eyebrow">{phoneHref ? (cta?.label ?? 'Book a consultation') : ''}</span>
       </div>
       <div style={{ textAlign: 'center', paddingBlock: '1.5rem' }}>
         <a
@@ -117,6 +129,11 @@ function Masthead({
           ))}
         </ul>
       </nav>
+      {/* Mobile only: the links above are hidden below 768px, so without this
+          there is no navigation at all on a phone. */}
+      <div style={{ display: 'flex', justifyContent: 'center', paddingBottom: '.5rem' }}>
+        <MobileNavToggle nav={nav} cta={cta} />
+      </div>
     </div>
   );
 }

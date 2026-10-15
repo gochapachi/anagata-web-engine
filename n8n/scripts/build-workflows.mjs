@@ -861,8 +861,23 @@ HARD RULES
    that does not need it.
 9. PROSE: UK/Indian English. Concrete nouns and numbers. No "in today's fast-paced world", no
    "unlock", no "elevate", no "delve".
+9a. DO NOT WRITE PAGE CHROME. The site already renders the header bar, the nav menu, the logo,
+   the footer and the site's business name as the display title. You MUST NOT emit <header>,
+    <nav>, <footer>, or an <h1> that merely repeats the business name. Start your page with the
+    first <section> of real content and use <h2> for its heading. Writing your own header,
+    footer or nav produces TWO of them stacked on the live page. Your <h1> must be a real
+    page-specific headline, not the business name.
+9b. NEVER write a phone number as loose text. Phone numbers appear only inside
+    <InlineLeadCTA phone="..." /> or a tel: link, both of which are styled and clickable.
+9c. Do not use raw HTML <details>, <summary> or <table>. Use <FaqAccordion .../> and
+    <CostComparisonTable .../> instead, which are styled and keyboard accessible.
+9d. Do not write steps.length, [0].length, or any expression that evaluates to NaN. If you need
+    a sticky scroll height, pass a NUMBER to <StickyScene height={2} /> - not "200vh".
+9e. Do not reference pages that are not in your sitemap. Every <a href> must point to a page
+    you were asked to generate.
 10. Escape a bare "<" in prose as &lt; (e.g. "&lt; 30 minutes").
-11. Must end with a <footer> containing the business name, phone and a copyright line.`,
+11. Do NOT add a footer. The site's footer (business name, phone, nav links, copyright) is
+    rendered by the layout on every page; emitting another one produces two stacked footers.`,
     text: `=Write the page "{{ $json.title }}" for this client.
 
 PAGE BRIEF
@@ -930,7 +945,9 @@ Check, IN ORDER:
 3. H1 COUNT: exactly one <h1>. Zero or two+ -> fail.
 4. FABRICATION: any invented statistic, price, award, staff name, review count not in the
    research brief -> fail, name the fabricated fact.
-5. PLACEHOLDER: lorem ipsum, "TODO", "example.com" links, empty sections -> fail.
+5. PLACEHOLDER: lorem ipsum, "TODO", "example.com" links, empty sections -> fail. Also fail if
+   the page is EMPTY or contains no <section> at all - an empty string passes an MDX syntax
+   check, and an agent that returned an error envelope produces one. That must never publish.
 6. DESIGN FIDELITY: inline hex/rgb()/font names instead of the CSS variables -> fail.
 7. LAYOUT: nested minmax() in grid-template-columns, trapped JSX, walls of text -> fail.
 
@@ -1008,12 +1025,104 @@ return [{
     jsCode: `// Merge the reviewed MDX + compiled CSS into the pages-table row shape.
 const page = $input.first().json;
 const gate = $('Compile Gate').first().json;
+
+// HARD GUARD: an empty string IS valid MDX, so the compile gate passes it, and
+// an agent that returned an error envelope (or nothing) produces one. Storing
+// that with published:true is a blank page on a live site. Route it to the
+// salvage branch instead: a page that says "under review" beats a page that is
+// visibly empty while claiming to be published.
+const rawMdx = String(page.mdx ?? '').trim();
+const isEmptyMdx =
+  !rawMdx ||
+  (rawMdx.length < 400 && !/<section/i.test(rawMdx)) ||
+  !rawMdx.includes('<') ||
+  rawMdx.includes('service failed to process');
+
+if (isEmptyMdx) {
+  return [{
+    json: {
+      site_id: page.site_id,
+      slug: String(page.slug ?? '').replace(/^\\//, ''),
+      title: page.title ?? '',
+      sections: [{ mdx: '<section className="shell-section"><p className="shell-body">This page requires manual review before publishing.</p></section>', anchor: 'content' }],
+      compiled_css: '',
+      published: false,
+      salvage_reason: 'empty or non-markup output from the page creator',
+    },
+  }];
+}
+
+const request = $('Normalize Site Request').first().json;
+
+// STRIP DUPLICATE CHROME. The shell renders header/footer/nav/H1 itself, but the
+// page agent writes a self-contained page and emits its own - giving two headers,
+// two footers and two <h1>s on screen (the audit's top finding).
+//
+// The logic is INLINED rather than imported: an n8n Code node is a sandbox with
+// no access to this repo's TypeScript modules. src/lib/sanitize-mdx.ts carries
+// the same implementation and its tests; keep the two in step when editing.
+function dropTag(tag, html) {
+  const open = new RegExp('<' + tag + '(\\\\s[^>]*)?>', 'i');
+  const close = new RegExp('</' + tag + '\\\\s*>', 'i');
+  let out = html;
+  for (let guard = 0; guard < 12; guard++) {
+    const start = open.exec(out);
+    if (!start) break;
+    if (!start.index && start.index !== 0) break;
+    const closeMatch = close.exec(out.slice(start.index));
+    if (!closeMatch) break;
+    const end = start.index + closeMatch.index + closeMatch[0].length;
+    out = out.slice(0, start.index) + out.slice(end);
+  }
+  return out.replace(new RegExp('<' + tag + '(\\\\s[^>]*)?/>', 'gi'), '');
+}
+
+function dedupeH1(html, businessName) {
+  const name = String(businessName ?? '').trim().toLowerCase();
+  const re = /<h1(\\s[^>]*)?>([\s\S]*?)<\/h1\\s*>/gi;
+  const found = [];
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    const text = m[2].replace(/<[^>]+>/g, '').trim();
+    found.push({ start: m.index, end: m.index + m[0].length, isName: name.length > 0 && text.toLowerCase().includes(name) });
+  }
+  if (found.length <= 1) return html;
+  const keepIndex = found.findIndex((f) => !f.isName);
+  const keep = keepIndex === -1 ? 0 : keepIndex;
+  let out = html;
+  for (let i = found.length - 1; i >= 0; i--) {
+    if (i === keep) continue;
+    out = out.slice(0, found[i].start) + out.slice(found[i].end);
+  }
+  return out;
+}
+
+let cleaned = rawMdx;
+for (const tag of ['header', 'footer', 'nav']) cleaned = dropTag(tag, cleaned);
+cleaned = dedupeH1(cleaned, request.business_name);
+
+// If stripping chrome removed everything, treat as salvage rather than storing
+// a page whose markup is gone.
+if (!cleaned.mdx.includes('<section')) {
+  return [{
+    json: {
+      site_id: page.site_id,
+      slug: String(page.slug ?? '').replace(/^\\//, ''),
+      title: page.title ?? '',
+      sections: [{ mdx: '<section className="shell-section"><p className="shell-body">This page requires manual review before publishing.</p></section>', anchor: 'content' }],
+      compiled_css: '',
+      published: false,
+      salvage_reason: 'chrome removal left no page sections',
+    },
+  }];
+}
+
 return [{
   json: {
     site_id: page.site_id,
     slug: String(page.slug ?? '').replace(/^\\//, ''),
     title: page.title ?? '',
-    sections: [{ mdx: String(page.mdx ?? ''), anchor: 'content' }],
+    sections: [{ mdx: cleaned.mdx, anchor: 'content' }],
     compiled_css: String(page.css ?? gate.css ?? ''),
     published: true,
   },

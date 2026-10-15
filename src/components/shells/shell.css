@@ -231,6 +231,11 @@ body {
   .shell-nav-links {
     display: none;
   }
+  /* The hamburger must appear exactly where the links disappeared, or mobile
+     has no navigation at all (the audit found zero nav below 768px). */
+  .shell-nav-toggle {
+    display: inline-flex !important;
+  }
   .nav-sidebar-rail .shell-rail {
     position: static;
     height: auto;

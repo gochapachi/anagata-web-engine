@@ -38,11 +38,25 @@ export async function generateMetadata({
   if (!site) return { title: 'Not found' };
 
   const seo = site.seo_global ?? {};
-  const canonical = `https://${site.domain}`;
+  // Canonical must use the host the visitor actually arrived on. site.domain is
+  // the CLIENT's future production domain; when it is still a placeholder (or a
+  // .example.com demo), pointing canonicals at it sends every search signal to
+  // a host that does not exist. The request host is always the real one.
+  const requestHost = decodeURIComponent(domain);
+  const isPlaceholder = /example\.(com|org|net)$|\bexample\b/i.test(requestHost) || requestHost.endsWith('.example.com');
+  const canonicalHost = isPlaceholder ? requestHost : site.domain || requestHost;
+  const canonical = `https://${canonicalHost}`;
+
   return {
-    metadataBase: new URL(canonical),
-    title: seo.title_template ? { template: seo.title_template, default: seo.default_title ?? site.domain } : (seo.default_title ?? site.domain),
-    description: seo.description,
+    metadataBase: new URL(`https://${requestHost}`),
+    title: seo.title_template ? { template: seo.title_template, default: seo.default_title ?? site.business_info?.name } : (seo.default_title ?? site.business_info?.name ?? site.domain),
+    // A tenant page with no description is invisible in SERPs. Derive one from
+    // the business facts when the sitemap agent did not supply one.
+    description:
+      seo.description ??
+      ([site.business_info?.name, site.niche, 'in', site.city]
+        .filter(Boolean)
+        .join(' ') || site.domain),
     alternates: { canonical },
     openGraph: {
       type: 'website',
@@ -50,6 +64,7 @@ export async function generateMetadata({
       siteName: site.business_info?.name ?? site.domain,
       images: seo.og_image ? [seo.og_image] : undefined,
     },
+    // Preview tenants are noindex; live ones are indexable.
     robots: { index: site.status === 'live', follow: site.status === 'live' },
   };
 }
@@ -63,13 +78,35 @@ export async function resolveGenome(site: SiteRow): Promise<DesignGenome> {
 
 export async function defaultNav(site: SiteRow) {
   const pages = await getPages(site.domain, site.id);
+  // The authoritative set of page slugs that actually exist. Nav entries whose
+  // target page was never written (an interrupted run, a salvaged page) are
+  // dropped here rather than shipped as a primary CTA 404. The site row's nav
+  // is authored from the sitemap plan before the pages exist, so it can
+  // legitimately point at slugs that never landed.
+  const existing = new Set(pages.map((page) => page.slug));
+  existing.add('');
+
+  // '/about#team' -> 'about'; '/about' -> 'about'; '/' -> ''
+  const targetOf = (href: string) =>
+    String(href)
+      .replace(/^https?:\/\/[^/]+/, '')
+      .replace(/[#?].*$/, '')
+      .replace(/^\/+/, '')
+      .replace(/\/+$/, '');
+
+  const reachable = (item: { href?: string }) => existing.has(targetOf(item.href ?? '/'));
+
   const fromConfig = Array.isArray(site.navigation?.items) ? site.navigation.items : null;
   if (fromConfig?.length) {
-    return fromConfig.map((item: any) => ({
+    const filtered = fromConfig.map((item: any) => ({
       label: String(item.label ?? item.title ?? ''),
       href: String(item.href ?? item.url ?? '/'),
-    }));
+    })).filter(reachable);
+    // If filtering emptied the nav entirely, fall through to the page-derived
+    // default rather than rendering an empty header.
+    if (filtered.length) return filtered;
   }
+
   return pages
     .filter((page) => ['/', 'about', 'services', 'blog', 'contact'].includes(page.slug))
     .map((page) => ({

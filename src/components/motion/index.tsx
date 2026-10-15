@@ -363,8 +363,13 @@ export function TiltCard({ children, intensity = 8, className }: TiltCardProps) 
 
 export interface StickySceneProps {
   children?: ReactNode;
-  /** Scroll distance the section stays pinned for, in viewport heights. */
-  height?: number;
+  /**
+   * Scroll distance the section stays pinned for.
+   * A NUMBER is viewport heights (2 = two screens). A STRING like "200vh" is
+   * also accepted and normalised, because the agent prompt used to advertise
+   * that form and the raw string reached a `height * 100` multiplication.
+   */
+  height?: number | string;
   className?: string;
 }
 
@@ -377,8 +382,20 @@ export interface StickySceneProps {
  * reconciler on re-render. Sticky is native, reversible, and cannot desync.
  */
 export function StickyScene({ children, height = 2, className }: StickySceneProps) {
+  // The agent was told to pass height="200vh" (a STRING), but the prop is a
+  // number of viewport heights. "200vh" * 100 is NaN, which serialises as
+  // height:NaNvh and collapses the sticky container to zero - the audit found
+  // exactly that. Accept both forms: a bare number means "sticky for N
+  // viewports", a vh/vw string means a raw CSS length.
+  let vh: number;
+  if (typeof height === 'string' && /^[\d.]+vh$/i.test(height.trim())) {
+    vh = Number.parseFloat(height);
+  } else {
+    const n = Number(height);
+    vh = Number.isFinite(n) && n > 0 ? n * 100 : 200;
+  }
   return (
-    <div className={className} style={{ position: 'relative', height: `${height * 100}vh` }}>
+    <div className={className} style={{ position: 'relative', height: `${vh}vh` }}>
       <div
         style={{
           position: 'sticky',
