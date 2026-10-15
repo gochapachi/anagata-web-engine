@@ -13,7 +13,7 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        0,
+        9620,
         0
       ],
       "webhookId": "nextjs-blog-publisher-v2"
@@ -34,7 +34,7 @@
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
-        260,
+        9880,
         0
       ]
     },
@@ -80,7 +80,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        520,
+        10140,
         0
       ],
       "retryOnFail": true,
@@ -98,7 +98,7 @@
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
       "position": [
-        780,
+        10400,
         0
       ]
     },
@@ -112,7 +112,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1040,
+        10660,
         0
       ]
     },
@@ -158,7 +158,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1300,
+        10920,
         0
       ],
       "retryOnFail": true,
@@ -176,7 +176,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1560,
+        11180,
         0
       ]
     },
@@ -222,7 +222,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1820,
+        11440,
         0
       ],
       "alwaysOutputData": true,
@@ -241,7 +241,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2080,
+        11700,
         0
       ]
     },
@@ -260,7 +260,7 @@
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.7,
       "position": [
-        2340,
+        11960,
         0
       ],
       "retryOnFail": true,
@@ -297,7 +297,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2600,
+        12220,
         0
       ],
       "retryOnFail": true,
@@ -333,7 +333,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        2860,
+        12480,
         0
       ]
     },
@@ -347,7 +347,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3120,
+        12740,
         0
       ]
     },
@@ -361,7 +361,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3380,
+        13000,
         0
       ]
     },
@@ -375,7 +375,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3640,
+        13260,
         0
       ]
     },
@@ -389,7 +389,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3900,
+        13520,
         0
       ]
     },
@@ -401,7 +401,7 @@
         "sendBody": true,
         "specifyBody": "json",
         "bodyContentType": "json",
-        "jsonBody": "={\n  \"site_id\": \"{{ $json.site_id }}\",\n  \"slug\": {{ JSON.stringify($json.slug) }},\n  \"title\": {{ JSON.stringify($json.title) }},\n  \"excerpt\": {{ JSON.stringify($json.excerpt) }},\n  \"content_mdx\": {{ JSON.stringify($json.content_mdx) }},\n  \"compiled_css\": {{ JSON.stringify($json.compiled_css) }},\n  \"category\": {{ JSON.stringify($json.category) }},\n  \"tags\": {{ JSON.stringify($json.tags) }},\n  \"author\": {{ JSON.stringify($json.author) }},\n  \"seo_meta\": {\n    \"seo_title\": {{ JSON.stringify($json.seo_title) }},\n    \"meta_description\": {{ JSON.stringify($json.meta_description) }},\n    \"focus_keyword\": {{ JSON.stringify($json.focus_keyword) }}\n  },\n  \"reading_time_mins\": {{ $json.reading_time_mins }},\n  \"status\": \"published\"\n}",
+        "jsonBody": "={{ JSON.stringify({\n  site_id: $json.site_id,\n  slug: $json.slug,\n  title: $json.title,\n  excerpt: $json.excerpt,\n  content_mdx: $json.content_mdx,\n  compiled_css: $json.compiled_css,\n  category: $json.category,\n  tags: $json.tags,\n  author: $json.author,\n  seo_meta: {\n    seo_title: $json.seo_title,\n    meta_description: $json.meta_description,\n    focus_keyword: $json.focus_keyword,\n  },\n  reading_time_mins: $json.reading_time_mins,\n  status: \"published\",\n}) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -429,7 +429,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        4160,
+        13780,
         0
       ],
       "retryOnFail": true,
@@ -465,7 +465,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        4420,
+        14040,
         0
       ],
       "retryOnFail": true,
@@ -484,7 +484,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        4680,
+        14300,
         0
       ]
     },
@@ -498,7 +498,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4940,
+        14560,
         0
       ]
     },
@@ -530,7 +530,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        5200,
+        14820,
         0
       ]
     },
@@ -538,9 +538,9 @@
       "parameters": {
         "model": {
           "__rl": true,
-          "value": "gemini-argon",
+          "value": "auto:free_models",
           "mode": "list",
-          "cachedResultName": "gemini-argon"
+          "cachedResultName": "auto:free_models"
         },
         "responsesApiEnabled": false,
         "options": {
@@ -552,13 +552,13 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.3,
       "position": [
-        5720,
+        15080,
         0
       ],
       "credentials": {
         "openAiApi": {
-          "id": "vIlI3yqZbj1qnCvG",
-          "name": "Gemini"
+          "id": "NexReT9zk3GuX1sO",
+          "name": "FreeLLM"
         }
       }
     }

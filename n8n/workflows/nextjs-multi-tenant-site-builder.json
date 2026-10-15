@@ -1,10 +1,10 @@
 {
-  "name": "Anagata Next.js Multi-Tenant Site Builder (v2)",
+  "name": "Anagata Next.js Multi-Tenant Site Builder (v3)",
   "nodes": [
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "nextjs-site-generator-v2",
+        "path": "nextjs-site-generator-v3",
         "responseMode": "responseNode",
         "options": {}
       },
@@ -16,12 +16,12 @@
         0,
         0
       ],
-      "webhookId": "nextjs-site-generator-v2"
+      "webhookId": "nextjs-site-generator-v3"
     },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// Validates the request and derives every identifier the rest of the run needs.\n// Throws early: a malformed request must fail in 1 second, not after 20 minutes\n// of LLM spend.\nconst body = $input.first().json.body ?? $input.first().json;\n\nconst required = ['business_name', 'niche', 'city', 'phone', 'services'];\nconst missing = required.filter((field) => {\n  const value = body[field];\n  if (Array.isArray(value)) return value.length === 0;\n  return value === undefined || value === null || String(value).trim() === '';\n});\nif (missing.length) {\n  throw new Error('Missing required field(s): ' + missing.join(', '));\n}\n\nconst slugify = (value) =>\n  String(value)\n    .toLowerCase()\n    .normalize('NFKD')\n    .replace(/[^a-z0-9]+/g, '-')\n    .replace(/^-+|-+$/g, '')\n    .slice(0, 48);\n\nconst slug = slugify(body.slug || body.business_name);\nif (!slug) throw new Error('Could not derive a slug from business_name.');\n\nconst domain = body.custom_domain\n  ? String(body.custom_domain).toLowerCase().replace(/^https?:\\/\\//, '').replace(/\\/.*$/, '').replace(/^www\\./, '').trim()\n  : slug + '.' + 'anagataitsolutions.in';\n\nconst services = (Array.isArray(body.services) ? body.services : String(body.services).split(','))\n  .map((service) => String(service).trim())\n  .filter(Boolean);\n\nif (!services.length) throw new Error('services must contain at least one entry.');\n\nreturn [\n  {\n    json: {\n      run_id: slug + '-' + Date.now().toString(36),\n      slug,\n      domain,\n      preview_subdomain: slug + '.' + 'anagataitsolutions.in',\n      niche: String(body.niche).trim(),\n      city: String(body.city).trim(),\n      business_name: String(body.business_name).trim(),\n      phone: String(body.phone).trim(),\n      whatsapp: body.whatsapp ? String(body.whatsapp).trim() : null,\n      email: body.email ? String(body.email).trim() : null,\n      address: body.address ? String(body.address).trim() : null,\n      services,\n      // Optional: an existing site to draw tone/structure cues from.\n      reference_url: body.reference_url ? String(body.reference_url) : null,\n      brand_notes: body.brand_notes ? String(body.brand_notes) : null,\n      doctor_or_lead: body.doctor_or_lead ?? null,\n      status: body.custom_domain ? 'live' : 'preview',\n      started_at: new Date().toISOString(),\n    },\n  },\n];"
+        "jsCode": "const body = $input.first().json.body ?? $input.first().json;\n\nconst required = ['business_name', 'niche', 'city', 'phone', 'services'];\nconst missing = required.filter((field) => {\n  const value = body[field];\n  if (Array.isArray(value)) return value.length === 0;\n  return value === undefined || value === null || String(value).trim() === '';\n});\nif (missing.length) throw new Error('Missing required field(s): ' + missing.join(', '));\n\nconst slugify = (value) =>\n  String(value).toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48);\nconst slug = slugify(body.slug || body.business_name);\nif (!slug) throw new Error('Could not derive a slug from business_name.');\n\nconst domain = body.custom_domain\n  ? String(body.custom_domain).toLowerCase().replace(/^https?:\\/\\//, '').replace(/\\/.*$/, '').replace(/^www\\./, '').trim()\n  : slug + '.' + 'anagataitsolutions.in';\n\nconst services = (Array.isArray(body.services) ? body.services : String(body.services).split(','))\n  .map((service) => String(service).trim())\n  .filter(Boolean);\nif (!services.length) throw new Error('services must contain at least one entry.');\n\nreturn [{\n  json: {\n    run_id: slug + '-' + Date.now().toString(36),\n    slug,\n    domain,\n    preview_subdomain: slug + '.' + 'anagataitsolutions.in',\n    niche: String(body.niche).trim(),\n    city: String(body.city).trim(),\n    business_name: String(body.business_name).trim(),\n    phone: String(body.phone).trim(),\n    whatsapp: body.whatsapp ? String(body.whatsapp).trim() : null,\n    email: body.email ? String(body.email).trim() : null,\n    address: body.address ? String(body.address).trim() : null,\n    services,\n    reference_url: body.reference_url ? String(body.reference_url) : null,\n    brand_notes: body.brand_notes ? String(body.brand_notes) : null,\n    doctor_or_lead: body.doctor_or_lead ?? null,\n    research_prompt:\n      'Research ' + String(body.business_name) + ', a ' + String(body.niche) + ' in ' + String(body.city) +\n      '. Services: ' + services.join(', ') +\n      '. Find: what the business actually does, indicative price bands, the localities it serves, ' +\n      'its competitors, and the questions clients ask. Return real, verifiable facts only.',\n    started_at: new Date().toISOString(),\n  },\n}];"
       },
       "id": "24c7cd2c-3ca0-4c25-88ab-d97efa92e687",
       "name": "Normalize Site Request",
@@ -40,7 +40,7 @@
         "sendBody": true,
         "specifyBody": "json",
         "bodyContentType": "json",
-        "jsonBody": "={\n  \"seed\": {{ JSON.stringify($json.slug) }},\n  \"niche\": {{ JSON.stringify($json.niche) }},\n  \"city\": {{ JSON.stringify($json.city) }},\n  \"useLedger\": true\n}",
+        "jsonBody": "={{ JSON.stringify({ seed: $json.slug, niche: $json.niche, city: $json.city, useLedger: true }) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -67,10 +67,10 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// Expands ONE request item into ONE item per page to generate.\n//\n// Every item carries the genome so the page agent writes to the tenant's actual\n// structure (grid, rhythm, shell) rather than a generic layout. This is where\n// \"the AI writes a bespoke site\" is actually wired: the genome constrains the\n// design, the agent fills it.\nconst request = $('Normalize Site Request').first().json;\nconst genomeResponse = $input.first().json;\n\nif (!genomeResponse || !genomeResponse.genome) {\n  throw new Error('Design genome service returned no genome: ' + JSON.stringify(genomeResponse).slice(0, 400));\n}\nif (genomeResponse.similarity_ok === false) {\n  // The engine reports this only when its ledger read failed. Publishing anyway\n  // would risk shipping a duplicate-looking site, which is the one thing this\n  // system exists to prevent.\n  throw new Error('Anti-sameness check failed: ' + JSON.stringify(genomeResponse.similarity ?? {}).slice(0, 300));\n}\n\nconst genome = genomeResponse.genome;\nconst profile = genomeResponse.profile ?? genome._profile ?? {};\n\nconst slugify = (value) =>\n  String(value).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);\n\nconst lead = request.doctor_or_lead ?? null;\nconst leadLine = lead && lead.name ? lead.name + (lead.credentials ? ', ' + lead.credentials : '') : null;\n\nconst sharedBrief = [\n  'BUSINESS: ' + request.business_name,\n  'NICHE: ' + request.niche,\n  'CITY: ' + request.city,\n  'PHONE: ' + request.phone,\n  request.address ? 'ADDRESS: ' + request.address : null,\n  'SERVICES: ' + request.services.join(' | '),\n  leadLine ? 'NAMED PROFESSIONAL (use for E-E-A-T, never invent other people): ' + leadLine : null,\n  request.reference_url ? 'REFERENCE SITE (tone only, never copy text): ' + request.reference_url : null,\n  request.brand_notes ? 'BRAND NOTES: ' + request.brand_notes : null,\n].filter(Boolean).join('\\n');\n\n// CRAFT LAYER. The genome constrains STRUCTURE (shell, nav, colour, rhythm,\n// fonts); it says nothing about state coverage, spacing discipline or\n// interaction quality, which is why generated pages read as competent-generic\n// rather than designed. The engine picks ONE vendored design skill whose\n// declared style is compatible with this shell and returns it pre-rendered.\n//\n// It is a SUB-AXIS, so it cannot weaken the anti-sameness guarantees: it is not\n// part of structureSignature(), and the engine has already stripped the skill's\n// hex values and font names, so it cannot override the typography or palette\n// axes either. Refuse the run if it is missing - an older engine would silently\n// drop the craft layer and every site would regress to the same look.\n//\n// ORDER MATTERS AND IS NOT OBVIOUS FROM READING. This must sit ABOVE\n// designBrief: an earlier revision extracted the block underneath the brief it\n// was supposed to feed, so the guard passed, the run succeeded, and no page\n// ever received a craft rule. The build guard\n// 'design brief carries the craft layer' is what catches that class now.\nconst designSkill = genomeResponse.design_skill ?? {};\nconst designSkillBlock = String(designSkill.block ?? '');\nconst designSkillSlug = String(designSkill.slug ?? '');\nif (!designSkillBlock) {\n  throw new Error(\n    'Genome response carries no design skill block - the engine predates the craft layer. ' +\n    'Deploy the engine before the workflow. Response keys: ' +\n    Object.keys(genomeResponse).join(', ')\n  );\n}\n\n// Persisted INSIDE design_genome, alongside _rhythm and _hue, so no DB column is\n// added (the Supabase MCP here is read-only, so a migration is not available).\n// Safe for the same reason the axis itself is: it never participates in\n// structureSignature().\ngenome._design_skill = designSkillSlug;\n\nconst designBrief = [\n  'SHELL: ' + genome.shell_archetype,\n  'NAV: ' + genome.nav_topology,\n  'COLOUR MODE: ' + genome.color_mode,\n  'SECTION RHYTHM: ' + genome.rhythm,\n  'GRID: ' + (profile.grid ?? 'unspecified'),\n  'DENSITY: ' + (profile.density ?? 'balanced'),\n  'SURFACE: ' + (profile.surface_treatment ?? 'unspecified'),\n  'MOTION: ' + genome.motion_profile,\n  'MAX SECTIONS: ' + (profile.max_sections ?? 11),\n  '',\n  // The craft layer, appended so the structural brief stays the first thing the\n  // agent reads (it is authoritative) and the skill rules follow under their own\n  // PRECEDENCE clause.\n  designSkillBlock,\n].join('\\n');\n\nconst pages = [\n  {\n    slug: '/',\n    title: request.business_name,\n    intent:\n      'Home page. Lead with the single strongest local promise, then prove it. ' +\n      'Sections in this order: hero, trust strip, services, proof, process, faq, booking CTA.',\n    minSections: 6,\n  },\n  {\n    slug: 'about',\n    title: 'About Us',\n    intent:\n      'Credentials, story and facility. Cover who runs it, qualifications, years of experience, ' +\n      'technology used, and why patients/clients choose it. Include the E-E-A-T authority block.',\n    minSections: 4,\n  },\n  ...request.services.map((service) => ({\n    slug: 'services/' + slugify(service),\n    title: service,\n    intent:\n      'Dedicated local landing page for \"' + service + '\" in ' + request.city + '. ' +\n      'Cover: what it is, who needs it, the process step by step, indicative cost table, ' +\n      'recovery or timeline expectations, and 5 city-specific FAQs. Target local search intent.',\n    minSections: 5,\n  })),\n  {\n    slug: 'contact',\n    title: 'Contact',\n    intent:\n      'Contact and booking. Opening hours, address, phone, and a booking form with a honeypot field. ' +\n      'Do not invent an email or an address that was not supplied - omit what you do not know.',\n    minSections: 3,\n  },\n];\n\n// NICHE PAGE SETS. The four pages above are the floor every site needs. A real\n// professional-services site sells a niche, not a template, so the niche adds\n// pages that a buyer in that market actually looks for: a valuation-led estate\n// agency needs area guides and a valuation page; a tax practice needs a fee\n// schedule and a deadline calendar. Keyed on the request's niche string, matched\n// as a substring so 'real-estate', 'realestate' and 'property' all land.\n//\n// Adding a page here does NOT weaken anti-sameness: pages live under a site, and\n// structureSignature() is computed from the genome, not the page list.\nconst NICHE_PAGES = {\n  'real estate': [\n    { slug: 'areas', title: 'Areas We Cover', minSections: 3,\n      intent: 'Local area guide hub. One card per locality served in ' + request.city + ', each explaining what is in demand there, typical price bands, and who it suits. Link each card to its own area page.' },\n    { slug: 'valuation', title: 'Free Property Valuation', minSections: 3,\n      intent: 'Lead-capture valuation page. Explain exactly what the valuation covers, how long it takes, what the client receives, and why an accurate figure matters when selling. End with a short multi-field enquiry form. Do not promise a specific timescale or fee that was not supplied.' },\n    { slug: 'selling-process', title: 'How Selling Works', minSections: 4,\n      intent: 'Step-by-step selling journey from first valuation to completion, numbered, with what the client must do at each stage and how long each stage typically takes.' },\n    { slug: 'landlords', title: 'Landlord Services', minSections: 3,\n      intent: 'Services for landlords: tenant find, full management, compliance obligations, rent collection, and what differs between the two service levels.' },\n  ],\n  'tax': [\n    { slug: 'fees', title: 'Fee Schedule', minSections: 3,\n      intent: 'Transparent fee structure. Give indicative bands per service with what each includes and excludes, and state clearly that a fixed quote follows a free initial review. Use a <CostComparisonTable/> for the bands.' },\n    { slug: 'deadlines', title: 'Key Tax Deadlines', minSections: 3,\n      intent: 'Calendar of the filing and payment deadlines that apply to your clients, in chronological order, with the consequence of missing each one. Use generic recurring dates only, never a specific unverified deadline for a named year.' },\n    { slug: 'process', title: 'How We Work', minSections: 4,\n      intent: 'The engagement process from first call to filing: onboarding, document collection, review, submission, and ongoing support. Explain what records the client must keep.' },\n    { slug: 'sectors', title: 'Sectors We Serve', minSections: 3,\n      intent: 'Which client types the practice acts for (contractors, landlords, owner-managed companies, individuals) and the specific issues each faces.' },\n  ],\n};\n\n// Anything after the first comma or space-separated word is a qualifier\n// (\"real estate agency\" -> \"real estate\"), so match on the leading phrase.\nfunction nichePages(niche) {\n  const key = String(niche || '').toLowerCase();\n  for (const [needle, extra] of Object.entries(NICHE_PAGES)) {\n    if (key.includes(needle.replace(' ', ''))) return extra;\n    if (key.includes(needle)) return extra;\n  }\n  return [];\n}\n\n// Suffix the base set with the niche pages, then de-duplicate by slug so a\n// service that happens to be called \"Valuation\" cannot produce two /valuation\n// pages (which would also violate the pages unique(site_id, slug) constraint).\n{\n  const seen = new Set(pages.map((p) => p.slug));\n  for (const extra of nichePages(request.niche)) {\n    if (seen.has(extra.slug)) continue;\n    seen.add(extra.slug);\n    pages.push(extra);\n  }\n}\n\nreturn pages.map((page) => ({\n  json: {\n    run_id: request.run_id,\n    slug: page.slug,\n    title: page.title,\n    minSections: page.minSections,\n    intent: page.intent,\n    domain: request.domain,\n    site_slug: request.slug,\n    city: request.city,\n    services: request.services,\n    phone: request.phone,\n    business_name: request.business_name,\n    genome,\n    rhythm: genome.rhythm,\n    design_brief: designBrief,\n    shared_brief: sharedBrief,\n    retry_count: 0,\n  },\n}));"
+        "jsCode": "// Merges the normalized request (which carries research_prompt) with the\n// design genome, so the Research Agent receives both. The genome node's output\n// is the genome object only, so this reattaches the request fields.\nconst request = $('Normalize Site Request').first().json;\nconst genome = $input.first().json;\nreturn [{\n  json: {\n    ...request,\n    genome: genome.genome,\n    design_skill: String(genome.design_skill?.block ?? ''),\n    shell: String(genome.genome?.shell_archetype ?? ''),\n  },\n}];"
       },
-      "id": "68950c80-d1c9-473f-84f7-0470b2bcab77",
-      "name": "Build Page Blueprints",
+      "id": "f66eb458-ee4d-4d3f-8143-a93b2cc5024a",
+      "name": "Prepare Research Prompt",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -80,20 +80,112 @@
     },
     {
       "parameters": {
-        "promptType": "define",
-        "text": "=Write the page \"{{ $json.title }}\" for this client.\n\nPAGE BRIEF\n{{ $json.intent }}\n\nDESIGN BRIEF (shape the page around this exactly)\n{{ $json.design_brief }}\n\nCLIENT FACTS (the only facts you may state)\n{{ $json.shared_brief }}\n\nMinimum sections: {{ $json.minSections }}\nReturn only the fenced ```mdx block.",
+        "toolDescription": "Search the web for business information, local competitors, services, and market facts.",
+        "method": "POST",
+        "url": "https://9router.anagataitsolutions.in/v1/search",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "parametersHeaders": {
+          "values": [
+            {
+              "name": "Content-Type",
+              "valueProvider": "fieldValue",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "valueProvider": "fieldValue",
+              "value": "Bearer sk-9127591aad3fd9d8-y6e3sj-e08c7d82"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"model\":\"tavily\",\"query\":\"{query}\",\"max_results\":5,\"search_type\":\"web\"}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "query",
+              "description": "The search query string (e.g. business niche and city)",
+              "type": "string"
+            }
+          ]
+        },
         "options": {
-          "systemMessage": "You are a senior front-end engineer and conversion copywriter who writes ONE page of a\nclient website as MDX. You write real, specific, locally-relevant copy - never lorem ipsum and never\ngeneric filler.\n\nHARD RULES\n1. OUTPUT: a single fenced block exactly like:\n   ```mdx\n   <section className=\"...\">...</section>\n   ```\n   Nothing before or after it. No commentary, no explanation, no multiple blocks.\n2. DESIGN FIDELITY: you MUST honour the supplied design brief. Use the stated grid, rhythm, density\n   and surface treatment. A reader must be able to tell this page apart from another site's page.\n3. COLOUR/TYPE: NEVER write hex codes, rgb(), or font names. Use the CSS variables provided:\n   var(--bg-canvas) var(--bg-surface) var(--bg-contrast) var(--text-primary) var(--text-muted)\n   var(--brand-primary) var(--brand-accent) var(--on-brand) var(--radius-card) var(--radius-button)\n   var(--section-gap) var(--container-width) var(--display-scale)\n   Use var(--font-heading) for headings and var(--font-body) for body text.\n4. CLASSES: all layout classes must be written INSIDE className=\"...\" so they are compiled. Tailwind\n   arbitrary values are fine and encouraged: p-[38px], grid-cols-[1.1fr_0.9fr], text-[1.0625rem].\n   NEVER nest minmax() inside grid-template-columns - browsers drop the whole declaration.\n5. EXACTLY ONE <h1> for the page. Use <h2> for section headings. Every <img> needs a descriptive alt.\n6. Use ONLY these components, spelled exactly. Never import anything.\n   CONTENT (server-rendered):\n   <QuickSummary points={[\"...\",\"...\"]} />\n   <CostComparisonTable title=\"...\" rows={[{label,detail,price}]} />\n   <FaqAccordion title=\"...\" items={[{q,a}]} />\n   <DoctorReviewedBadge name=\"...\" credentials=\"...\" date=\"...\" />\n   <Callout type=\"note|tip|warning\">text</Callout>\n   <InlineLeadCTA ctaText=\"...\" service=\"...\" phone=\"...\" />\n   MOTION (client-side, these animate in the browser - USE THEM, a page with none of these\n   is a static page and will be rejected as too plain):\n   <ScrollProgress />                        thin progress bar pinned to the top of the viewport\n   <Reveal>...</Reveal>                      fades/slides its children in on scroll. Wrap each\n                                             major section: <Reveal><section>...</section></Reveal>\n                                             Optional props: delay={0.1} y={24} as=\"div\"\n   <Parallax speed={0.2}>...</Parallax>      slides its children against the scroll. Use around a\n                                             hero visual or a full-bleed band. speed 0.1 subtle,\n                                             0.4 dramatic.\n   <StatCounter value={1200} suffix=\"+\" label=\"Projects delivered\" />\n                                             a number that counts up when scrolled into view.\n                                             Use only real figures from the client facts.\n   <TiltCard>...</TiltCard>                  3D tilt that follows the pointer. Use for service\n                                             cards and feature tiles.\n   <StickyScene height=\"200vh\">...</StickyScene>\n                                             pins its child while the user scrolls through it.\n                                             Use ONCE per page for the strongest single idea.\n   <Marquee speed={28}>Item one · Item two · Item three</Marquee>\n                                             infinite horizontal scroller. Use for a trust strip\n                                             of logos, credentials or localities.\n   MOTION RULES: every page MUST use at least one motion component, and the home page MUST use\n   <ScrollProgress /> plus at least two of <Reveal>, <Parallax>, <StatCounter>, <StickyScene>.\n   Never put a motion component inside another motion component's props. Keep <Reveal> wrapping a\n   whole section rather than every paragraph, or the page feels twitchy.\n7. FACTS: never invent awards, review counts, certifications, statistics, or staff names. Only use\n   facts present in the business brief. If a fact is not given, write copy that does not need it.\n8. PROSE: UK/Indian English. Concrete nouns and numbers. No \"in today's fast-paced world\", no\n   \"unlock\", no \"elevate\", no \"delve\".\n9. Must include a <footer> element at the end of the page content with the business name, phone and\n   a copyright line.\n10. Sections: write at least the requested minimum, each as its own <section> element.\n11. Escape a bare \"<\" in prose as &lt; (e.g. \"&lt; 30 minutes\") or MDX will treat it as a tag.",
+          "timeout": 30000
+        }
+      },
+      "id": "09a37ead-abee-4574-8e60-c98a7b6a5d1c",
+      "name": "9Router Web Search",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1040,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Fetch and read the content of a web page URL as markdown.",
+        "method": "POST",
+        "url": "https://9router.anagataitsolutions.in/v1/web/fetch",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "parametersHeaders": {
+          "values": [
+            {
+              "name": "Content-Type",
+              "valueProvider": "fieldValue",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "valueProvider": "fieldValue",
+              "value": "Bearer sk-9127591aad3fd9d8-y6e3sj-e08c7d82"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"model\":\"jina-reader\",\"url\":\"{url}\",\"format\":\"markdown\",\"max_characters\":6000}",
+        "placeholderDefinitions": {
+          "values": [
+            {
+              "name": "url",
+              "description": "The full URL of the webpage to scrape and read",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "3a290cb9-a881-453b-85ca-a03e3c4b3d0f",
+      "name": "9Router Web Fetch",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        1300,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Research the business behind this website request and produce the JSON brief.\n\nRequest: {{ $json.research_prompt }}\n\nBusiness: {{ $json.business_name }}\nNiche: {{ $json.niche }}\nCity: {{ $json.city }}\nServices: {{ JSON.stringify($json.services) }}\nReference site (tone only, never copy): {{ $json.reference_url || 'none' }}\n\nReturn ONLY the fenced ```json block.",
+        "options": {
+          "systemMessage": "You are a business researcher for a professional-services website.\nYou research the business, its niche, its city and its competitors using two tools:\n1. '9Router Web Search' — call it with the argument {\"query\": \"<specific query — niche + city>\"}\n2. '9Router Web Fetch' — call it with {\"url\": \"<page url>\"} to read a page as markdown\n\nGather REAL facts only. NEVER invent statistics, awards, review counts, staff names, prices,\naddresses or dates. If a fact is not verifiable, mark it UNKNOWN and move on.\n\nProduce a RESEARCH BRIEF as a single fenced JSON block and nothing else:\n```json\n{\n  \"business_overview\": \"what the business actually does, 1-2 sentences\",\n  \"verified_facts\": [\"fact 1\", \"fact 2\"],\n  \"price_bands\": [\"indicative band 1\"] or [],\n  \"local_areas\": [\"area 1\", \"area 2\"],\n  \"competitor_notes\": \"what competitors do well or badly\",\n  \"common_questions\": [\"q1\", \"q2\", \"q3\"],\n  \"tone_words\": [\"concrete\", \"reassuring\"]\n}\n```\nThe brief is the ONLY source of facts available to the page writers, so be thorough but honest.",
           "maxIterations": 2,
           "returnIntermediateSteps": false
         }
       },
-      "id": "7005ba2c-0047-4259-84c8-69585de0091b",
-      "name": "Page Architect Agent",
+      "id": "e753c00d-c752-4889-8014-276c13c7e76d",
+      "name": "Research Agent",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 1.7,
       "position": [
-        1040,
+        1560,
         0
       ],
       "retryOnFail": true,
@@ -101,6 +193,252 @@
       "waitBetweenTries": 5000,
       "onError": "continueRegularOutput",
       "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "auto:free_models",
+          "mode": "list",
+          "cachedResultName": "auto:free_models"
+        },
+        "responsesApiEnabled": false,
+        "options": {
+          "temperature": 0.4
+        }
+      },
+      "id": "6cb58811-5748-4a6a-82f5-1c003b0fbf50",
+      "name": "Model - Research",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1820,
+        0
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "NexReT9zk3GuX1sO",
+          "name": "FreeLLM"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// The Research Agent emits {output: \"<fenced json>\"}. Merge that brief with the\n// request + genome so the Sitemap Architect has everything in one item.\nconst request = $('Normalize Site Request').first().json;\nconst genome = $('Prepare Research Prompt').first().json;\nconst raw = String($input.first().json.output ?? $input.first().json.text ?? '');\nconst brief = raw.replace(/^```[\\w-]*\\s*/, '').replace(/\\s*```$/, '').trim();\nlet research_brief = brief;\ntry { research_brief = JSON.stringify(JSON.parse(brief)); } catch {}\nreturn [{\n  json: { ...request, ...genome, research_brief },\n}];"
+      },
+      "id": "3518e71f-124a-481a-8012-d05ff1eb6967",
+      "name": "Prepare Sitemap Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2080,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Build the sitemap and navigation for this site.\n\nBusiness: {{ $json.business_name }}\nNiche: {{ $json.niche }}\nCity: {{ $json.city }}\nServices: {{ JSON.stringify($json.services) }}\nDesign shell: {{ $json.shell }}\nDesign skill rules:\n{{ $json.design_skill }}\n\nRESEARCH BRIEF (the only facts you may rely on):\n{{ $json.research_brief }}\n\nReturn ONLY the fenced ```json block with \"pages\" and \"nav\".",
+        "options": {
+          "systemMessage": "You are a senior information architect building the complete sitemap and navigation for a\nprofessional-services website.\n\nGiven the research brief, the business facts and the design genome, produce:\n1. A sitemap of 15-20 pages — NEVER fewer than 15. Cover EVERY service as its own page and every\n   named locality, plus: home, about (team/credentials), services hub, process, pricing,\n   testimonials, FAQ, contact, and niche-appropriate pages (e.g. valuation for estate agency,\n   fee schedule for a tax practice, results page for a clinic).\n2. A navigation tree that reaches EVERY page. \"primary\" holds the 4-6 items a visitor must see\n   first; \"footerGroups\" groups the rest. Nothing may be unreachable.\n\nReturn ONLY a single fenced JSON block:\n```json\n{\n  \"pages\": [\n    { \"slug\": \"/\", \"title\": \"...\", \"intent\": \"purpose and sections for the page writer, 2-3 sentences\", \"minSections\": 9 }\n  ],\n  \"nav\": {\n    \"primary\": [{ \"label\": \"...\", \"href\": \"/...\" }],\n    \"footerGroups\": [{ \"group\": \"...\", \"items\": [{ \"label\": \"...\", \"href\": \"/...\" }] }]\n  }\n}\n```\nRules: every slug starts with \"/\". Every page appears in primary or a footer group. minSections is\nat least 7 for every page, 8-9 for the home page. Slugs are lowercase and hyphenated.",
+          "maxIterations": 2,
+          "returnIntermediateSteps": false
+        }
+      },
+      "id": "cc745a3b-032a-440e-808a-6184e6bbf924",
+      "name": "Sitemap Architect",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        2340,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "auto:free_models",
+          "mode": "list",
+          "cachedResultName": "auto:free_models"
+        },
+        "responsesApiEnabled": false,
+        "options": {
+          "temperature": 0.4
+        }
+      },
+      "id": "f96f1a36-9f74-4ac7-8dca-ad0e02e744f8",
+      "name": "Model - Sitemap",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        2600,
+        0
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "NexReT9zk3GuX1sO",
+          "name": "FreeLLM"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Parse the sitemap agent's fenced JSON defensively. On any failure, fall back\n// to a minimal usable sitemap so a parser hiccup cannot kill the whole run.\nconst request = $('Normalize Site Request').first().json;\nconst research = $('Prepare Sitemap Prompt').first().json;\n\nlet parsed = null;\nconst raw = String($input.first().json.output ?? $input.first().json.text ?? '');\ntry {\n  const clean = raw.replace(/^```[\\w-]*\\s*/, '').replace(/\\s*```$/, '').trim();\n  parsed = JSON.parse(clean);\n} catch (err) {\n  parsed = {\n    pages: [\n      { slug: '/', title: request.business_name, intent: 'Home. Lead with the strongest local promise, then prove it.', minSections: 8 },\n      { slug: '/about', title: 'About Us', intent: 'Credentials, story and team.', minSections: 7 },\n      ...(Array.isArray(request.services) ? request.services : []).map((s) => ({\n        slug: '/services/' + String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-'),\n        title: s,\n        intent: 'Service page for ' + s + '. What it is, who needs it, process, cost, FAQs.',\n        minSections: 7,\n      })),\n      { slug: '/contact', title: 'Contact', intent: 'Contact and booking form, hours, phone.', minSections: 7 },\n    ],\n    nav: { primary: [{ label: 'Home', href: '/' }], footerGroups: [] },\n  };\n}\n\nconst pages = (parsed.pages ?? []).map((p) => ({\n  slug: String(p.slug ?? '/').replace(/\\/+$/, ''),\n  title: String(p.title ?? 'Page'),\n  intent: String(p.intent ?? ''),\n  minSections: Math.max(7, Number(p.minSections ?? 7)),\n}));\nconst primary = (parsed.nav?.primary ?? []).map((i) => ({ label: String(i.label ?? ''), href: String(i.href ?? '#') })).filter((i) => i.label && i.href !== '#');\nconst footerGroups = (parsed.nav?.footerGroups ?? []).map((g) => ({\n  group: String(g.group ?? 'More'),\n  items: (g.items ?? []).map((i) => ({ label: String(i.label ?? ''), href: String(i.href ?? '#') })).filter((i) => i.label && i.href !== '#'),\n}));\n\nreturn [{\n  json: { ...request, ...research, pages, nav: { primary, footerGroups }, parsed_ok: parsed !== null },\n}];"
+      },
+      "id": "87614f0b-d56b-46bb-8601-32a96923f607",
+      "name": "Parse Sitemap",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2860,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Builds sites.navigation.items from the sitemap. The tenant layout serves\n// navigation.items whenever non-empty — the empty-array bug was why every site\n// showed only Home/About/Contact while 8 other pages were unreachable.\nconst site = $input.first().json;\nconst pages = site.pages ?? [];\nconst nav = site.nav ?? { primary: [], footerGroups: [] };\n\nconst primary = (nav.primary ?? []).concat(\n  pages\n    .filter((p) => p.slug === '/' || p.slug === '/about' || p.slug === '/contact')\n    .map((p) => ({ label: p.slug === '/' ? 'Home' : p.title, href: p.slug }))\n);\nconst seen = new Set();\nconst primaryUnique = primary.filter((i) => (seen.has(i.href) ? false : (seen.add(i.href), true)));\nconst footerItems = [];\nfor (const group of nav.footerGroups ?? []) {\n  for (const item of group.items ?? []) {\n    if (!seen.has(item.href)) { seen.add(item.href); footerItems.push({ label: item.label, href: item.href }); }\n  }\n}\nfor (const p of pages) {\n  if (!seen.has(p.slug)) { seen.add(p.slug); footerItems.push({ label: p.title, href: p.slug }); }\n}\n\nreturn [{ json: { ...site, navigation: { items: primaryUnique, footer: footerItems } } }];"
+      },
+      "id": "5853e7d8-541d-44ec-8d4c-9f7f34a0683c",
+      "name": "Build Navigation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3120,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://supabase.anagataitsolutions.in/rest/v1/sites",
+        "options": {},
+        "sendBody": true,
+        "specifyBody": "json",
+        "bodyContentType": "json",
+        "jsonBody": "={{ JSON.stringify({\n  slug: $json.slug,\n  domain: $json.domain,\n  preview_subdomain: $json.preview_subdomain,\n  niche: $json.niche,\n  city: $json.city,\n  business_info: {\n    name: $json.business_name,\n    phone: $json.phone,\n    address: $json.address || undefined,\n    services: $json.services,\n    lead: $json.doctor_or_lead || undefined,\n  },\n  design_genome: $json.genome,\n  navigation: $json.navigation,\n  seo_global: { title_template: $json.business_name + ' | ' + $json.city },\n  status: \"preview\",\n}) }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc1OTQwMDc2MCwiZXhwIjo0OTE1MDc0MzYwLCJyb2xlIjoic2VydmljZV9yb2xlIn0.R9ki9FjWzHGqvV3DZg5vU5K6t7whABmwNfts9quEikk"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc1OTQwMDc2MCwiZXhwIjo0OTE1MDc0MzYwLCJyb2xlIjoic2VydmljZV9yb2xlIn0.R9ki9FjWzHGqvV3DZg5vU5K6t7whABmwNfts9quEikk"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=representation"
+            }
+          ]
+        }
+      },
+      "id": "4a7a4205-c8e2-49f7-8d03-45377ebe0d5c",
+      "name": "Upsert Site Row",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3380,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "stopWorkflow"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const siteResp = $input.first().json;\nconst siteRow = siteResp[0] ?? siteResp; // return=representation -> array\nif (!siteRow?.id) throw new Error('Upsert Site Row did not return a site id.');\n\nconst ctx = $('Parse Sitemap').first().json;\nconst design_brief = [\n  'SHELL: ' + (ctx.genome?.shell_archetype ?? ''),\n  'NAV: ' + (ctx.genome?.nav_topology ?? ''),\n  'COLOUR MODE: ' + (ctx.genome?.color_mode ?? ''),\n  'RHYTHM: ' + (ctx.genome?.rhythm ?? ''),\n  'MOTION: ' + (ctx.genome?.motion_profile ?? ''),\n  '',\n  ctx.design_skill ?? '',\n].join('\\n');\n\nreturn (ctx.pages ?? []).map((page) => ({\n  json: {\n    run_id: ctx.run_id,\n    site_id: siteRow.id,\n    slug: page.slug,\n    title: page.title,\n    intent: page.intent,\n    minSections: page.minSections,\n    domain: ctx.domain,\n    business_name: ctx.business_name,\n    niche: ctx.niche,\n    city: ctx.city,\n    services: ctx.services,\n    phone: ctx.phone,\n    address: ctx.address ?? null,\n    doctor_or_lead: ctx.doctor_or_lead ?? null,\n    genome: ctx.genome,\n    design_brief,\n    research_brief: ctx.research_brief,\n    navigation: ctx.navigation,\n    retry_count: 0,\n    issues: [],\n  },\n}));"
+      },
+      "id": "518a4254-c0f1-4101-8383-ea1853760690",
+      "name": "Expand Pages",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3640,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "0645275c-387a-4d48-88e6-ba373764fc0a",
+      "name": "Loop Pages",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        3900,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Write the page \"{{ $json.title }}\" for this client.\n\nPAGE BRIEF\n{{ $json.intent }}\n\nDESIGN BRIEF (shape the page around this exactly)\n{{ $json.design_brief }}\n\nRESEARCH BRIEF (the only facts you may state)\n{{ $json.research_brief }}\n\nBUSINESS FACTS\nBusiness: {{ $json.business_name }}\nNiche: {{ $json.niche }}\nCity: {{ $json.city }}\nPhone: {{ $json.phone }}\nServices: {{ JSON.stringify($json.services) }}\n\nMinimum sections: {{ $json.minSections }}\n\nISSUES FROM THE LAST REVIEW (fix every one; empty means first draft)\n{{ JSON.stringify($json.issues) }}\n\nReturn only the fenced ```mdx block.",
+        "options": {
+          "systemMessage": "You are a senior front-end engineer and conversion copywriter. You write ONE page of a client\nwebsite as MDX — the page you are given, and nothing else. You write real, specific,\nlocally-relevant copy. Never lorem ipsum, never filler.\n\nHARD RULES\n1. OUTPUT: a single fenced block exactly like:\n   ```mdx\n   <section className=\"...\">...</section>\n   ```\n   Nothing before or after it. No commentary, no multiple blocks.\n2. DESIGN FIDELITY: honour the design brief exactly (grid, rhythm, density, surface). A reader\n   must be able to tell this page apart from another site's page.\n3. COLOUR/TYPE: NEVER write hex codes, rgb(), or font names. Use ONLY the CSS variables in the\n   design brief: var(--bg-canvas) var(--bg-surface) var(--bg-contrast) var(--text-primary)\n   var(--text-muted) var(--brand-primary) var(--brand-accent) var(--on-brand) var(--radius-card)\n   var(--radius-button) var(--section-gap) var(--container-width) var(--display-scale)\n   var(--font-heading) var(--font-body).\n4. CLASSES: all layout classes INSIDE className=\"...\" so they compile. Tailwind arbitrary values\n   are encouraged: p-[38px], grid-cols-[1.1fr_0.9fr]. NEVER nest minmax() in grid-template-columns.\n5. EXACTLY ONE <h1>. Every <img> needs a descriptive alt.\n6. SECTIONS: write AT LEAST {{ $json.minSections }}. Each section is its own <section> element\n   with a className. Fewer sections FAILS review.\n7. MOTION + 3D (REQUIRED — a page with none is a static page and FAILS review):\n   - <ScrollProgress /> — use on EVERY page\n   - <Reveal>...</Reveal> wraps a whole section, optional delay={0.1} y={24}\n   - <Parallax speed={0.2}>...</Parallax> around a hero visual or full-bleed band\n   - <StatCounter stats={[{value:1200,suffix:\"+\",label:\"...\"}]} /> count-up — REAL figures\n     from the research brief only\n   - <TiltCard>...</TiltCard> 3D pointer tilt for cards\n   - <StickyScene height=\"200vh\">...</StickyScene> pins its child — ONCE per page for the\n     strongest single idea\n   - <Marquee items={[\"A\",\"B\",\"C\"]} /> infinite trust strip\n   - <ParticleField density={70} /> canvas particles — inside a hero or band\n   - <Scene3D shape=\"torus\" color=\"var(--brand-primary)\" wireframe={true} /> WebGL shape —\n     REQUIRED on the HOME page hero\n   CONTENT components (server-rendered):\n   - <QuickSummary points={[\"...\",\"...\"]} />\n   - <CostComparisonTable title=\"...\" rows={[{label,detail,price}]} />\n   - <FaqAccordion title=\"...\" items={[{q,a}]} />\n   - <DoctorReviewedBadge name=\"...\" credentials=\"...\" date=\"...\" />\n   - <Callout type=\"note|tip|warning\">text</Callout>\n   - <InlineLeadCTA ctaText=\"...\" service=\"...\" phone=\"...\" />\n   MOTION RULES: every page MUST use <ScrollProgress /> plus at least two of <Reveal>,\n   <Parallax>, <StatCounter>, <TiltCard>, <StickyScene>, <Marquee>, <ParticleField>, <Scene3D>.\n   The HOME page MUST include <Scene3D> in its hero AND at least one <StickyScene>.\n   Never nest a motion component inside another motion component's props.\n8. FACTS: never invent awards, review counts, certifications, statistics, prices, or staff\n   names. Only facts in the research brief or business facts. If a fact is unknown, write copy\n   that does not need it.\n9. PROSE: UK/Indian English. Concrete nouns and numbers. No \"in today's fast-paced world\", no\n   \"unlock\", no \"elevate\", no \"delve\".\n10. Escape a bare \"<\" in prose as &lt; (e.g. \"&lt; 30 minutes\").\n11. Must end with a <footer> containing the business name, phone and a copyright line.",
+          "maxIterations": 2,
+          "returnIntermediateSteps": false
+        }
+      },
+      "id": "dcdd0d6a-c7e4-4e8a-865a-1eb3417046ad",
+      "name": "Page Creator Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        4160,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "auto:free_models",
+          "mode": "list",
+          "cachedResultName": "auto:free_models"
+        },
+        "responsesApiEnabled": false,
+        "options": {
+          "temperature": 0.4
+        }
+      },
+      "id": "a3eeddd1-92fd-4597-8e21-5da25e2efdff",
+      "name": "Model - Page Creator",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        4420,
+        0
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "NexReT9zk3GuX1sO",
+          "name": "FreeLLM"
+        }
+      }
     },
     {
       "parameters": {
@@ -130,7 +468,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1300,
+        4680,
         0
       ],
       "retryOnFail": true,
@@ -166,61 +504,205 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        1560,
+        4940,
         0
       ]
     },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// The compile gate rejected this page's MDX. This node does NOT block the run: a\n// tenant with one imperfect page is better than no tenant at all, and the site\n// is created with status 'preview' so nothing goes public unreviewed.\n//\n// What it does guarantee: the page is stored as PLAIN TEXT, never as broken JSX.\n// Broken JSX in the database would 500 a live page later.\n//\n// It maps over EVERY page, matching the one-row-per-page contract of\n// 'Assemble Valid Page'. Using .first() here would salvage a single page and\n// silently discard the other four.\nconst gates = $input.all();\nconst pages = $('Build Page Blueprints').all();\nconst agents = $('Page Architect Agent').all();\n\nif (!gates.length) throw new Error('No gate results on the salvage branch.');\n\n// Strips the fence and neutralises anything that looks like JSX so the stored\n// content is inert markdown rather than markup the renderer might execute.\nfunction inert(raw) {\n  return String(raw ?? '')\n    .replace(/^\\s*\\x60{3}mdx\\s*/i, '')\n    .replace(/\\s*\\x60{3}\\s*$/i, '')\n    .replace(/<\\/?[A-Za-z][^>]*>/g, '')\n    .replace(/\\{\\{?[\\s\\S]*?\\}\\}?/g, '')\n    .trim();\n}\n\nreturn gates.map((item, i) => {\n  const gate = item.json;\n  const page = pages[i]?.json ?? {};\n  const agent = agents[i]?.json ?? {};\n  const body = inert(agent.output ?? agent.text ?? '');\n\n  return {\n    json: {\n      ...page,\n      salvaged: true,\n      compile_error: String(gate.error ?? 'unknown compile error').slice(0, 500),\n      sections: [{ mdx: body.length > 120 ? body : '_Content for this page requires review._', anchor: 'content' }],\n      compiled_css: '',\n      mdx_ok: false,\n    },\n  };\n});"
+        "jsCode": "// The creator emits ONLY {output: \"<mdx>\"} and the gate emits {valid, css}.\n// This node reattaches the FULL page context (slug, title, minSections,\n// research_brief) PLUS the mdx, so the analyzer can actually review it.\n// Inside the SplitInBatches loop, $('Loop Pages') returns the CURRENT item.\nconst loopItem = $('Loop Pages').first().json ?? {};\nconst creator = $('Page Creator Agent').first().json;\nconst gate = $input.first().json;\nreturn [{\n  json: {\n    ...loopItem,\n    mdx: String(creator.output ?? creator.text ?? creator.mdx ?? ''),\n    css: String(gate.css ?? ''),\n  },\n}];"
       },
-      "id": "b295c5c8-3d77-4060-8da7-51d4707ed794",
-      "name": "Salvage MDX Blocks",
+      "id": "f11271f7-e32e-45fe-89b0-30f686b48c58",
+      "name": "Prepare Page For Review",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1820,
+        5200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Review this generated page.\n\nPage: {{ $json.title }} (slug {{ $json.slug }})\nRequired minimum sections: {{ $json.minSections }}\nIs home page: {{ $json.slug === '/' ? 'yes' : 'no' }}\n\nRESEARCH BRIEF (the only permitted facts):\n{{ $json.research_brief }}\n\nTHE PAGE MDX TO REVIEW:\n{{ $json.mdx }}\n\nReturn ONLY the fenced ```json verdict block.",
+        "options": {
+          "systemMessage": "You are a ruthless design and copy QA reviewer. You review ONE generated page and return a\nverdict. You are not lenient: a template-ish page fails.\n\nCheck, IN ORDER:\n1. SECTION COUNT: count the <section> elements. Fewer than {{ $json.minSections }} -> fail.\n2. MOTION/3D: <ScrollProgress /> plus at least two of Reveal/Parallax/StatCounter/TiltCard/\n   StickyScene/Marquee/ParticleField/Scene3D? Home page must have Scene3D and StickyScene.\n   Missing -> fail, name the exact missing ones.\n3. H1 COUNT: exactly one <h1>. Zero or two+ -> fail.\n4. FABRICATION: any invented statistic, price, award, staff name, review count not in the\n   research brief -> fail, name the fabricated fact.\n5. PLACEHOLDER: lorem ipsum, \"TODO\", \"example.com\" links, empty sections -> fail.\n6. DESIGN FIDELITY: inline hex/rgb()/font names instead of the CSS variables -> fail.\n7. LAYOUT: nested minmax() in grid-template-columns, trapped JSX, walls of text -> fail.\n\nReturn ONLY a fenced JSON block:\n```json\n{\n  \"verdict\": \"pass\" | \"retry\" | \"salvage\",\n  \"score\": 0-100,\n  \"sections_found\": N,\n  \"motion_present\": [\"Reveal\"], \n  \"h1_count\": N,\n  \"issues\": [\"specific, actionable issue 1\", \"issue 2\"]\n}\n```\n\"pass\" = publish it. \"retry\" = fixable, be specific. \"salvage\" = beyond repair.",
+          "maxIterations": 2,
+          "returnIntermediateSteps": false
+        }
+      },
+      "id": "8ea84df7-840a-4bf3-8e9c-c12a2067d3e6",
+      "name": "Page Quality Analyzer",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        5460,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "auto:free_models",
+          "mode": "list",
+          "cachedResultName": "auto:free_models"
+        },
+        "responsesApiEnabled": false,
+        "options": {
+          "temperature": 0.4
+        }
+      },
+      "id": "f74be03b-0b96-4130-8146-d4930ca185f7",
+      "name": "Model - Analyzer",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        5720,
+        0
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "NexReT9zk3GuX1sO",
+          "name": "FreeLLM"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const item = $input.first().json;\nconst review = $('Prepare Page For Review').first().json;\nconst raw = String(item.output ?? item.text ?? '');\nlet verdict = { verdict: 'retry', score: 0, sections_found: 0, motion_present: [], h1_count: 0, issues: ['Analyzer output was not parseable: ' + raw.slice(0, 200)] };\ntry {\n  const clean = raw.replace(/^```[\\w-]*\\s*/, '').replace(/\\s*```$/, '').trim();\n  const parsed = JSON.parse(clean);\n  verdict = {\n    verdict: ['pass', 'retry', 'salvage'].includes(parsed.verdict) ? parsed.verdict : 'retry',\n    score: Number(parsed.score ?? 0),\n    sections_found: Number(parsed.sections_found ?? 0),\n    motion_present: Array.isArray(parsed.motion_present) ? parsed.motion_present : [],\n    h1_count: Number(parsed.h1_count ?? 0),\n    issues: Array.isArray(parsed.issues) ? parsed.issues.map(String) : [],\n  };\n} catch (err) {}\nreturn [{\n  json: {\n    ...review,\n    ...verdict,\n    retry_count: Number(review.retry_count ?? 0),\n  },\n}];"
+      },
+      "id": "a44d0a40-4790-45c1-8119-1df7938efd8b",
+      "name": "Parse Verdict",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5980,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "condition-1",
+              "leftValue": "={{ $json.verdict }}",
+              "rightValue": "pass",
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d6926f0f-bd28-4c5c-8a52-cc1aacb8b26a",
+      "name": "Route Verdict",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        6240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "condition-1",
+              "leftValue": "={{ $json.retry_count }}",
+              "rightValue": "2",
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "55d9d61c-6b27-4dbe-8a18-b3214068a2e5",
+      "name": "Retries Left",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        6500,
         0
       ]
     },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// Turns each validated MDX block into a pages-row shape: ONE ROW PER PAGE.\n//\n// Why a map and not .first(): Code nodes preserve item order, and the agent\n// fans out one item per blueprint, so the gate results, the blueprints and the\n// agent outputs all line up by index. Using .first() here collapsed a\n// five-page site into a single page - execution 120787 measured exactly that\n// (Build Page Blueprints 5 items in, Assemble Valid Page 1 item out), which is\n// how a tenant ends up with one page instead of five.\nconst gates = $input.all();\nconst pages = $('Build Page Blueprints').all();\nconst agents = $('Page Architect Agent').all();\n\nif (!gates.length) throw new Error('Compile gate returned no items.');\n\nif (pages.length !== gates.length || agents.length !== gates.length) {\n  throw new Error(\n    'Fan-out counts diverged (gate=' + gates.length + ' pages=' + pages.length +\n    ' agent=' + agents.length + '). Refusing to zip by index - pages would be mis-paired.'\n  );\n}\n\n// Unwraps the fenced mdx block the agent is instructed to emit. Backticks are\n// escaped below because this block lives inside a template literal in the\n// generator - an unescaped one terminates the string and breaks the build.\nfunction unfence(raw) {\n  return String(raw ?? '')\n    .replace(/^\\s*\\x60{3}mdx\\s*/i, '')\n    .replace(/\\s*\\x60{3}\\s*$/i, '')\n    .trim();\n}\n\n// True when an item is the agent's error envelope rather than real content.\n// The agent sets onError: 'continueRegularOutput', so an LLM failure arrives as\n// an ordinary item whose ONLY key is 'error'.\nfunction isErrorItem(json) {\n  if (!json || typeof json !== 'object') return false;\n  const keys = Object.keys(json);\n  return keys.length === 1 && keys[0] === 'error';\n}\n\n// An unrecoverable page becomes an inert 'requires review' placeholder rather\n// than a blank page that still reports published: true.\n//\n// The key MUST be 'mdx': PageSection is {block?, props?, mdx?, anchor?} and the\n// renderer reads only section.mdx (src/app/sites/[domain]/[[...page]]/page.tsx).\n// Writing {md: ...} produced a section the renderer silently skipped, so a\n// salvaged page rendered empty while still being marked published.\nfunction salvage(blueprint, reason) {\n  return {\n    json: {\n      ...blueprint,\n      salvaged: true,\n      compile_error: String(reason).slice(0, 500),\n      sections: [{ mdx: '_Content for this page requires review._', anchor: 'content' }],\n      compiled_css: '',\n      mdx_ok: false,\n    },\n  };\n}\n\nreturn gates.map((item, i) => {\n  const gate = item.json;\n  const page = pages[i].json;\n  const agent = agents[i].json;\n\n  if (isErrorItem(agent)) {\n      return salvage(page, agent.error ?? 'agent returned an error envelope');\n    }\n\n    if (gate.valid !== true) {\n      return salvage(page, gate.error ?? 'compile gate rejected this block');\n    }\n\n    const mdx = unfence(agent.output ?? agent.text ?? '');\n    if (!mdx.length) {\n      return salvage(page, 'agent returned empty content after unfencing');\n    }\n\n    return {\n      json: {\n        ...page,\n        salvaged: false,\n        sections: [{ mdx, anchor: 'content' }],\n      compiled_css: String(gate.css ?? ''),\n      css_bytes: Number(gate.cssBytes ?? 0),\n      warnings: gate.warnings ?? [],\n      mdx_ok: true,\n    },\n  };\n});"
+        "jsCode": "// Retry path: the FULL page context is already on the item (from Parse\n// Verdict's spread of Prepare Page For Review). Increment retry_count and pass\n// the analyzer's issues back to the Page Creator verbatim.\nconst item = $input.first().json;\nreturn [{\n  json: {\n    ...item,\n    retry_count: (Number(item.retry_count ?? 0) || 0) + 1,\n    issues: Array.isArray(item.issues) ? item.issues : [],\n  },\n}];"
+      },
+      "id": "bb9c92fb-d60a-434f-8dad-eda9bdd42059",
+      "name": "Bump Retry",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6760,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Merge the reviewed MDX + compiled CSS into the pages-table row shape.\nconst page = $input.first().json;\nconst gate = $('Compile Gate').first().json;\nreturn [{\n  json: {\n    site_id: page.site_id,\n    slug: String(page.slug ?? '').replace(/^\\//, ''),\n    title: page.title ?? '',\n    sections: [{ mdx: String(page.mdx ?? ''), anchor: 'content' }],\n    compiled_css: String(page.css ?? gate.css ?? ''),\n    published: true,\n  },\n}];"
       },
       "id": "3bca11d6-2bf2-4c96-8cf0-3ca3ca4a1337",
       "name": "Assemble Valid Page",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2080,
+        7020,
         0
       ]
     },
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// Converging node for the MDX IF's two branches.\n//\n// It must ONLY read its own input. An earlier version reached back with\n// $('Salvage MDX Blocks').all(), which n8n resolves by THROWING when that node\n// sits on the untaken branch of the IF - so a site with perfectly valid MDX on\n// every page failed the run with \"Node 'Salvage MDX Blocks' hasn't been\n// executed\" (execution 120787). $input is always defined: it is whichever\n// branch actually produced output.\n//\n// Both branch assemblers emit one item per page, so passing $input through\n// unchanged preserves the fan-out.\nconst items = $input.all();\nif (!items.length) {\n  throw new Error('No page output reached the merge from either MDX branch.');\n}\n\nreturn items.map((item) => ({ json: item.json }));"
+        "jsCode": "const page = $input.first().json;\nconst loopItem = $('Loop Pages').first().json ?? {};\nreturn [{\n  json: {\n    site_id: loopItem.site_id ?? page.site_id,\n    slug: String(loopItem.slug ?? '').replace(/^\\//, ''),\n    title: loopItem.title ?? '',\n    sections: [{ mdx: '<section className=\"shell-section\"><p className=\"shell-body\">This page requires manual review before publishing.</p></section>', anchor: 'content' }],\n    compiled_css: '',\n    published: false,\n  },\n}];"
       },
-      "id": "a508f899-aa43-4a5f-86b7-384948963269",
-      "name": "Merge Page Results",
+      "id": "b8fe3dda-c43e-4424-82a9-b53e9898044e",
+      "name": "Mark Page Salvaged",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2340,
+        7280,
         0
       ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "https://supabase.anagataitsolutions.in/rest/v1/sites?on_conflict=slug",
+        "url": "https://supabase.anagataitsolutions.in/rest/v1/pages",
         "options": {},
         "sendBody": true,
         "specifyBody": "json",
         "bodyContentType": "json",
-        "jsonBody": "={\n  \"slug\": {{ JSON.stringify($json.site_slug) }},\n  \"domain\": {{ JSON.stringify($json.domain) }},\n  \"preview_subdomain\": {{ JSON.stringify($json.site_slug + '.' + 'anagataitsolutions.in') }},\n  \"niche\": {{ JSON.stringify($('Normalize Site Request').first().json.niche) }},\n  \"city\": {{ JSON.stringify($json.city) }},\n  \"business_info\": {\n    \"name\": {{ JSON.stringify($json.business_name) }},\n    \"phone\": {{ JSON.stringify($json.phone) }},\n    \"email\": {{ JSON.stringify($('Normalize Site Request').first().json.email) }},\n    \"address\": {{ JSON.stringify($('Normalize Site Request').first().json.address) }},\n    \"services\": {{ JSON.stringify($json.services) }}\n  },\n  \"design_genome\": {{ JSON.stringify($json.genome) }},\n  \"navigation\": { \"items\": [] },\n  \"seo_global\": { \"default_title\": {{ JSON.stringify($json.business_name) }} },\n  \"status\": {{ JSON.stringify($('Normalize Site Request').first().json.status) }}\n}",
+        "jsonBody": "={{ JSON.stringify({ site_id: $json.site_id, slug: $json.slug, title: $json.title, sections: $json.sections, compiled_css: $json.compiled_css, published: $json.published }) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -243,12 +725,12 @@
           ]
         }
       },
-      "id": "d9ef4f48-31b0-4aaa-88b6-20def67a16a6",
-      "name": "Upsert Site",
+      "id": "fd46f8ea-90c4-41a8-84d2-b080feecd2bc",
+      "name": "Upsert Page",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2600,
+        7540,
         0
       ],
       "retryOnFail": true,
@@ -259,84 +741,40 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// One item per page, each carrying the site_id returned by Upsert Site.\n//\n// This node is load-bearing. Without it, Upsert Pages receives the SINGLE item\n// Upsert Site returned and n8n runs the HTTP node exactly once - so a site would\n// get one page instead of five. Emitting one item per page makes the HTTP node\n// fan out correctly, and it also puts each page's own MDX and compiled CSS on\n// the item so the request body never has to reach back into an earlier node.\nconst site = $input.first().json;\nconst siteId = site.id;\nif (!siteId) {\n  throw new Error('Upsert Site returned no row id; cannot attach pages. Response: ' + JSON.stringify(site).slice(0, 300));\n}\n\nconst pages = $('Merge Page Results').all();\nif (!pages.length) throw new Error('No pages available to insert.');\n\nreturn pages.map((item) => {\n  const page = item.json;\n  return {\n    json: {\n      site_id: siteId,\n      slug: page.slug,\n      title: page.title,\n      business_name: page.business_name,\n      city: page.city,\n      sections: page.sections,\n      compiled_css: page.compiled_css || '',\n      salvaged: page.salvaged === true,\n      seo_description: page.title + ' in ' + page.city + ' - ' + page.business_name,\n    },\n  };\n});"
+        "jsCode": "// Upsert Page returns the DB row (representations). The pages table has no\n// 'salvable' column, but salvaged pages are stored with published=false — that\n// IS the salvaged signal, so no schema change is needed.\nconst row = $input.first().json;\nreturn [{\n  json: { site_id: row.site_id, slug: row.slug, salvaged: row.published === false },\n}];"
       },
-      "id": "0fb06bd6-ff16-4a82-88dc-146cfd6f1254",
-      "name": "Expand Pages For Upsert",
+      "id": "68fac8c2-fc00-4b3f-8742-02c96eaee9b3",
+      "name": "Collect Page Results",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2860,
+        7800,
         0
       ]
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "https://supabase.anagataitsolutions.in/rest/v1/pages?on_conflict=site_id,slug",
-        "options": {},
-        "sendBody": true,
-        "specifyBody": "json",
-        "bodyContentType": "json",
-        "jsonBody": "={\n  \"site_id\": \"{{ $json.site_id }}\",\n  \"slug\": {{ JSON.stringify($json.slug) }},\n  \"title\": {{ JSON.stringify($json.title) }},\n  \"seo_meta\": {\n    \"title\": {{ JSON.stringify($json.title + ' | ' + $json.business_name) }},\n    \"description\": {{ JSON.stringify($json.seo_description) }}\n  },\n  \"sections\": {{ JSON.stringify($json.sections) }},\n    \"compiled_css\": {{ JSON.stringify($json.compiled_css) }},\n    \"published\": {{ $json.salvaged === true ? false : true }}\n  }",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            },
-            {
-              "name": "apikey",
-              "value": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc1OTQwMDc2MCwiZXhwIjo0OTE1MDc0MzYwLCJyb2xlIjoic2VydmljZV9yb2xlIn0.R9ki9FjWzHGqvV3DZg5vU5K6t7whABmwNfts9quEikk"
-            },
-            {
-              "name": "Authorization",
-              "value": "=Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc1OTQwMDc2MCwiZXhwIjo0OTE1MDc0MzYwLCJyb2xlIjoic2VydmljZV9yb2xlIn0.R9ki9FjWzHGqvV3DZg5vU5K6t7whABmwNfts9quEikk"
-            },
-            {
-              "name": "Prefer",
-              "value": "resolution=merge-duplicates,return=representation"
-            }
-          ]
-        }
-      },
-      "id": "e2889a05-0d1a-4ced-8963-5919143187bf",
-      "name": "Upsert Pages",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        3120,
-        0
-      ],
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000,
-      "onError": "stopWorkflow"
-    },
-    {
-      "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// Downgrades a site to 'preview' when any page is salvage.\n  //\n  // The sites row is written BEFORE the pages exist, so 'Upsert Site' can only\n  // judge by whether a custom domain was supplied - which is why execution 120885\n  // stored status 'live' while two service pages were blank. This node runs after\n  // the pages are known and re-decides.\n  //\n  // It emits exactly ONE item, so the nodes after it act on the site as a whole\n  // rather than once per page.\n  const site = $('Upsert Site').first().json;\n  const request = $('Normalize Site Request').first().json;\n  const pages = $('Merge Page Results').all();\n\n  if (!pages.length) {\n    throw new Error('No pages reached the status decision.');\n  }\n\n  const salvaged = pages.filter((item) => item.json.salvaged === true);\n  // A site is only served publicly when every page has real content.\n  const healthy = salvaged.length === 0;\n\n  return [\n    {\n      json: {\n        site_id: site.id,\n        domain: request.domain,\n        slug: request.slug,\n        healthy,\n        pages_total: pages.length,\n        pages_salvaged: salvaged.length,\n        // A custom domain is a request, not a permission: it cannot make a site\n        // with blank pages live.\n        status: healthy && request.status === 'live' ? 'live' : 'preview',\n        salvaged_slugs: salvaged.map((item) => item.json.slug),\n      },\n    },\n  ];"
+        "jsCode": "const results = $('Collect Page Results').all().map((i) => i.json).filter((r) => r && r.slug);\nconst salvaged = results.filter((r) => r.salvaged === true).length;\nconst total = results.length;\nconst siteRow = $('Upsert Site Row').first().json;\nconst realRow = siteRow[0] ?? siteRow;\nreturn [{\n  json: {\n    site_id: realRow.id,\n    status: total > 0 && salvaged === 0 ? 'live' : 'preview',\n    site_domain: realRow.domain ?? realRow.preview_subdomain,\n    pages_total: total,\n    pages_salvaged: salvaged,\n  },\n}];"
       },
       "id": "5a956ef1-05e5-45c4-8a71-6fb1ba4257a8",
       "name": "Decide Site Status",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3380,
+        8060,
         0
       ]
     },
     {
       "parameters": {
         "method": "PATCH",
-        "url": "=https://supabase.anagataitsolutions.in/rest/v1/sites?id=eq.{{ $json.site_id }}",
+        "url": "={{ 'https://supabase.anagataitsolutions.in/rest/v1/sites?id=eq.' + encodeURIComponent($json.site_id) }}",
         "options": {},
         "sendBody": true,
         "specifyBody": "json",
         "bodyContentType": "json",
-        "jsonBody": "={ \"status\": {{ JSON.stringify($json.status) }} }",
+        "jsonBody": "={{ JSON.stringify({ status: $json.status }) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -364,10 +802,9 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        3640,
+        8320,
         0
       ],
-      "executeOnce": true,
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 2000,
@@ -384,8 +821,8 @@
           "conditions": [
             {
               "id": "condition-1",
-              "leftValue": "={{ $('Decide Site Status').first().json.healthy }}",
-              "rightValue": "",
+              "leftValue": "={{ $('Decide Site Status').first().json.status }}",
+              "rightValue": "live",
               "operator": {
                 "type": "boolean",
                 "operation": "true"
@@ -401,42 +838,9 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        3900,
+        8580,
         0
       ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://n8n.anagataitsolutions.in/webhook/nextjs-blog-publisher-v2",
-        "options": {},
-        "sendBody": true,
-        "specifyBody": "json",
-        "bodyContentType": "json",
-        "jsonBody": "={ \"domain\": {{ JSON.stringify($('Normalize Site Request').first().json.domain) }}, \"count\": 2 }",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        }
-      },
-      "id": "24d0738e-79b1-468e-8e14-8d5cebb0e12a",
-      "name": "Seed Cornerstone Blogs",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        4160,
-        0
-      ],
-      "executeOnce": true,
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000,
-      "onError": "stopWorkflow"
     },
     {
       "parameters": {
@@ -446,7 +850,7 @@
         "sendBody": true,
         "specifyBody": "json",
         "bodyContentType": "json",
-        "jsonBody": "={ \"domain\": {{ JSON.stringify($('Normalize Site Request').first().json.domain) }}, \"type\": \"site\" }",
+        "jsonBody": "={{ JSON.stringify({ domain: $('Decide Site Status').first().json.site_domain, type: 'all' }) }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -466,10 +870,9 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        4420,
+        8840,
         0
       ],
-      "executeOnce": true,
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 2000,
@@ -478,14 +881,14 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// Builds the webhook response object.\n//\n// This is a Code node rather than an expression on the Respond node on purpose:\n// a multi-line JSON literal inside a Respond node's expression field is easy to\n// get wrong (an unbalanced `{{` fails validation at runtime, not at save time),\n// and the proven pattern in this codebase is Respond-with `={{ $json }}`.\nconst request = $('Normalize Site Request').first().json;\nconst pages = $('Merge Page Results').all();\n\nreturn [\n  {\n    json: {\n      status: 'created',\n      slug: request.slug,\n      domain: request.domain,\n      preview_url: 'https://' + request.preview_subdomain,\n      pages_generated: pages.length,\n      pages_salvaged: pages.filter((item) => item.json.salvaged === true).length,\n      design: pages.length\n        ? {\n            shell: pages[0].json.genome.shell_archetype,\n            nav: pages[0].json.genome.nav_topology,\n            color_mode: pages[0].json.genome.color_mode,\n            rhythm: pages[0].json.rhythm,\n          }\n        : null,\n    },\n  },\n];"
+        "jsCode": "const decision = $('Decide Site Status').first().json;\nconst results = $('Collect Page Results').all().map((i) => i.json).filter((r) => r && r.slug);\nreturn [{\n  json: {\n    status: decision.status,\n    site_id: decision.site_id,\n    domain: decision.site_domain,\n    pages_generated: results.filter((r) => r.salvaged !== true).length,\n    pages_salvaged: decision.pages_salvaged,\n    preview_url: 'https://' + decision.site_domain,\n  },\n}];"
       },
       "id": "735350bb-15ed-4b12-87a1-e4c7e52ba6b2",
       "name": "Build Site Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4680,
+        9100,
         0
       ]
     },
@@ -500,37 +903,9 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        4940,
+        9360,
         0
       ]
-    },
-    {
-      "parameters": {
-        "model": {
-          "__rl": true,
-          "value": "gemini-argon",
-          "mode": "list",
-          "cachedResultName": "gemini-argon"
-        },
-        "responsesApiEnabled": false,
-        "options": {
-          "temperature": 0.4
-        }
-      },
-      "id": "dd36eca2-e03d-4257-8c64-bb63d648face",
-      "name": "Model - Gemini Argon",
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-      "typeVersion": 1.3,
-      "position": [
-        5460,
-        0
-      ],
-      "credentials": {
-        "openAiApi": {
-          "id": "vIlI3yqZbj1qnCvG",
-          "name": "Gemini"
-        }
-      }
     }
   ],
   "connections": {
@@ -560,25 +935,175 @@
       "main": [
         [
           {
-            "node": "Build Page Blueprints",
+            "node": "Prepare Research Prompt",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Build Page Blueprints": {
+    "Prepare Research Prompt": {
       "main": [
         [
           {
-            "node": "Page Architect Agent",
+            "node": "Research Agent",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Page Architect Agent": {
+    "9Router Web Search": {
+      "ai_tool": [
+        [
+          {
+            "node": "Research Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "9Router Web Fetch": {
+      "ai_tool": [
+        [
+          {
+            "node": "Research Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Model - Research": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Research Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Research Agent": {
+      "main": [
+        [
+          {
+            "node": "Prepare Sitemap Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Sitemap Prompt": {
+      "main": [
+        [
+          {
+            "node": "Sitemap Architect",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Model - Sitemap": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Sitemap Architect",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sitemap Architect": {
+      "main": [
+        [
+          {
+            "node": "Parse Sitemap",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Sitemap": {
+      "main": [
+        [
+          {
+            "node": "Build Navigation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Navigation": {
+      "main": [
+        [
+          {
+            "node": "Upsert Site Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert Site Row": {
+      "main": [
+        [
+          {
+            "node": "Expand Pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expand Pages": {
+      "main": [
+        [
+          {
+            "node": "Loop Pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Pages": {
+      "main": [
+        [
+          {
+            "node": "Decide Site Status",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Page Creator Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Model - Page Creator": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Page Creator Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Page Creator Agent": {
       "main": [
         [
           {
@@ -604,6 +1129,68 @@
       "main": [
         [
           {
+            "node": "Prepare Page For Review",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Page Salvaged",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Page For Review": {
+      "main": [
+        [
+          {
+            "node": "Page Quality Analyzer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Model - Analyzer": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Page Quality Analyzer",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Page Quality Analyzer": {
+      "main": [
+        [
+          {
+            "node": "Parse Verdict",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Verdict": {
+      "main": [
+        [
+          {
+            "node": "Route Verdict",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Verdict": {
+      "main": [
+        [
+          {
             "node": "Assemble Valid Page",
             "type": "main",
             "index": 0
@@ -611,7 +1198,36 @@
         ],
         [
           {
-            "node": "Salvage MDX Blocks",
+            "node": "Retries Left",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retries Left": {
+      "main": [
+        [
+          {
+            "node": "Bump Retry",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Page Salvaged",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bump Retry": {
+      "main": [
+        [
+          {
+            "node": "Page Creator Agent",
             "type": "main",
             "index": 0
           }
@@ -622,62 +1238,40 @@
       "main": [
         [
           {
-            "node": "Merge Page Results",
+            "node": "Upsert Page",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Salvage MDX Blocks": {
+    "Mark Page Salvaged": {
       "main": [
         [
           {
-            "node": "Merge Page Results",
+            "node": "Upsert Page",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Merge Page Results": {
+    "Upsert Page": {
       "main": [
         [
           {
-            "node": "Upsert Site",
+            "node": "Collect Page Results",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Upsert Site": {
+    "Collect Page Results": {
       "main": [
         [
           {
-            "node": "Expand Pages For Upsert",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Expand Pages For Upsert": {
-      "main": [
-        [
-          {
-            "node": "Upsert Pages",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Upsert Pages": {
-      "main": [
-        [
-          {
-            "node": "Decide Site Status",
+            "node": "Loop Pages",
             "type": "main",
             "index": 0
           }
@@ -710,22 +1304,11 @@
       "main": [
         [
           {
-            "node": "Seed Cornerstone Blogs",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
             "node": "Revalidate Tenant",
             "type": "main",
             "index": 0
           }
-        ]
-      ]
-    },
-    "Seed Cornerstone Blogs": {
-      "main": [
+        ],
         [
           {
             "node": "Revalidate Tenant",
@@ -752,17 +1335,6 @@
           {
             "node": "Respond - Site Created",
             "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Model - Gemini Argon": {
-      "ai_languageModel": [
-        [
-          {
-            "node": "Page Architect Agent",
-            "type": "ai_languageModel",
             "index": 0
           }
         ]

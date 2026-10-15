@@ -24,8 +24,8 @@ const SUFFIX = (() => {
   return i !== -1 && process.argv[i + 1] ? process.argv[i + 1] : 'v2';
 })();
 
-const SITE_BUILDER_NAME = `Anagata Next.js Multi-Tenant Site Builder (${SUFFIX})`;
-const BLOG_PUBLISHER_NAME = `Anagata Next.js Multi-Tenant Blog Publisher (${SUFFIX})`;
+const SITE_BUILDER_NAME = `Anagata Next.js Multi-Tenant Site Builder (v3)`;
+const BLOG_PUBLISHER_NAME = `Anagata Next.js Multi-Tenant Blog Publisher (v2)`;
 
 const WORKFLOW_NAMES = [
   [SITE_BUILDER_NAME, 'site-builder'],

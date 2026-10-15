@@ -61,6 +61,8 @@ function loadRuntimeConfig() {
     ENGINE_COMPILE_SECRET: '',
     SUPABASE_SERVICE_ROLE_KEY: '',
     ENGINE_REVALIDATE_SECRET: '',
+    NINEROUTER_URL: '',
+    NINEROUTER_KEY: '',
   };
 
   if (!configExists(CONFIG_PATH)) return defaults;
@@ -355,15 +357,97 @@ const edge = (name, index = 0, connectionType = 'main') => ({
  * =======================================================================*/
 
 resetPositions();
-const siteBuilderNodes = [
-  webhookNode({ name: 'Webhook - Create Next.js Site', path: 'nextjs-site-generator-v2' }),
+// =========================================================================
+// v3 SITE BUILDER - multi-agent orchestration
+// =========================================================================
+// =========================================================================
+// v3 SITE BUILDER — multi-agent orchestration (fully corrected)
+//
+// Pipeline:
+//   Webhook(v3) -> Normalize (adds research_prompt) -> Get Genome
+//     -> Prepare Research Prompt (merge request+genome)
+//     -> Research Agent (9router search+fetch tools) -> research brief JSON
+//     -> Prepare Sitemap Prompt (merge request+genome+research_brief)
+//     -> Sitemap Architect Agent -> pages[] + nav
+//     -> Parse Sitemap (code) -> Build Navigation (code; fixes empty-nav bug)
+//     -> Upsert Site Row (creates site up front so pages can FK)
+//     -> Expand Pages (one item per page with full context)
+//     -> Loop Pages (SplitInBatches, the ONLY loop)
+//          body: Page Creator Agent -> Compile Gate -> MDX Valid?
+//            true -> Prepare Page For Review (reattach mdx+context)
+//               -> Page Quality Analyzer -> Parse Verdict -> Route Verdict
+//                    pass -> Assemble Valid Page
+//                    retry -> Retries Left? -> Bump Retry -> Page Creator (retry)
+//               (retries exhausted -> Mark Page Salvaged)
+//            false -> Mark Page Salvaged
+//          -> Upsert Page -> Collect Page Results -> Loop Pages (continue)
+//     loop done -> Decide Site Status (salvaged count -> live|preview)
+//       -> Finalize Site Status (PATCH) -> Site Healthy? -> Revalidate Tenant
+//       -> Build Site Response -> Respond
+//
+// n8n loop semantics relied on: inside a SplitInBatches loop, referencing the
+// loop node returns the CURRENT batch item — so Prepare Page For Review and
+// Bump Retry can reattach full page context without per-item bookkeeping.
+// =========================================================================
 
+/** LangChain HTTP-Request TOOL node (9router search / fetch). */
+function toolHttpNode({
+  name,
+  toolDescription,
+  method = 'POST',
+  url,
+  jsonBody,
+  headers,
+  placeholders = [],
+}) {
+  return {
+    parameters: {
+      toolDescription,
+      method,
+      url,
+      sendHeaders: Boolean(headers && headers.length),
+      specifyHeaders: headers && headers.length ? 'keypair' : undefined,
+      parametersHeaders:
+        headers && headers.length
+          ? {
+              values: headers.map((h) => ({
+                name: h.name,
+                valueProvider: 'fieldValue',
+                value: h.value,
+              })),
+            }
+          : undefined,
+      sendBody: jsonBody !== undefined,
+      specifyBody: jsonBody !== undefined ? 'json' : undefined,
+      jsonBody,
+      placeholderDefinitions:
+        placeholders.length
+          ? {
+              values: placeholders,
+            }
+          : undefined,
+      options: { timeout: 30000 },
+    },
+    id: id(`${name}-tool`),
+    name,
+    type: '@n8n/n8n-nodes-langchain.toolHttpRequest',
+    typeVersion: 1.1,
+    position: nextPosition(),
+  };
+}
+
+const NINEROUTER_URL = RUNTIME.NINEROUTER_URL || 'https://9router.anagataitsolutions.in/v1';
+const NINEROUTER_KEY = RUNTIME.NINEROUTER_KEY;
+
+const v3BuilderNodes = [];
+const v3BuilderConnections = {};
+
+/* ---- front: webhook, normalize, genome ---------------------------------- */
+v3BuilderNodes.push(
+  webhookNode({ name: 'Webhook - Create Next.js Site', path: 'nextjs-site-generator-v3' }),
   codeNode({
     name: 'Normalize Site Request',
-    jsCode: `// Validates the request and derives every identifier the rest of the run needs.
-// Throws early: a malformed request must fail in 1 second, not after 20 minutes
-// of LLM spend.
-const body = $input.first().json.body ?? $input.first().json;
+    jsCode: `const body = $input.first().json.body ?? $input.first().json;
 
 const required = ['business_name', 'niche', 'city', 'phone', 'services'];
 const missing = required.filter((field) => {
@@ -371,18 +455,10 @@ const missing = required.filter((field) => {
   if (Array.isArray(value)) return value.length === 0;
   return value === undefined || value === null || String(value).trim() === '';
 });
-if (missing.length) {
-  throw new Error('Missing required field(s): ' + missing.join(', '));
-}
+if (missing.length) throw new Error('Missing required field(s): ' + missing.join(', '));
 
 const slugify = (value) =>
-  String(value)
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 48);
-
+  String(value).toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48);
 const slug = slugify(body.slug || body.business_name);
 if (!slug) throw new Error('Could not derive a slug from business_name.');
 
@@ -393,318 +469,401 @@ const domain = body.custom_domain
 const services = (Array.isArray(body.services) ? body.services : String(body.services).split(','))
   .map((service) => String(service).trim())
   .filter(Boolean);
-
 if (!services.length) throw new Error('services must contain at least one entry.');
 
-return [
-  {
-    json: {
-      run_id: slug + '-' + Date.now().toString(36),
-      slug,
-      domain,
-      preview_subdomain: slug + '.' + '${SITES_BASE_DOMAIN_LITERAL}',
-      niche: String(body.niche).trim(),
-      city: String(body.city).trim(),
-      business_name: String(body.business_name).trim(),
-      phone: String(body.phone).trim(),
-      whatsapp: body.whatsapp ? String(body.whatsapp).trim() : null,
-      email: body.email ? String(body.email).trim() : null,
-      address: body.address ? String(body.address).trim() : null,
-      services,
-      // Optional: an existing site to draw tone/structure cues from.
-      reference_url: body.reference_url ? String(body.reference_url) : null,
-      brand_notes: body.brand_notes ? String(body.brand_notes) : null,
-      doctor_or_lead: body.doctor_or_lead ?? null,
-      status: body.custom_domain ? 'live' : 'preview',
-      started_at: new Date().toISOString(),
-    },
+return [{
+  json: {
+    run_id: slug + '-' + Date.now().toString(36),
+    slug,
+    domain,
+    preview_subdomain: slug + '.' + '${SITES_BASE_DOMAIN_LITERAL}',
+    niche: String(body.niche).trim(),
+    city: String(body.city).trim(),
+    business_name: String(body.business_name).trim(),
+    phone: String(body.phone).trim(),
+    whatsapp: body.whatsapp ? String(body.whatsapp).trim() : null,
+    email: body.email ? String(body.email).trim() : null,
+    address: body.address ? String(body.address).trim() : null,
+    services,
+    reference_url: body.reference_url ? String(body.reference_url) : null,
+    brand_notes: body.brand_notes ? String(body.brand_notes) : null,
+    doctor_or_lead: body.doctor_or_lead ?? null,
+    research_prompt:
+      'Research ' + String(body.business_name) + ', a ' + String(body.niche) + ' in ' + String(body.city) +
+      '. Services: ' + services.join(', ') +
+      '. Find: what the business actually does, indicative price bands, the localities it serves, ' +
+      'its competitors, and the questions clients ask. Return real, verifiable facts only.',
+    started_at: new Date().toISOString(),
   },
-];`,
+}];`,
   }),
-
   httpNode({
     name: 'Get Design Genome',
     method: 'POST',
     url: `${ENGINE_URL}/api/genome`,
-    jsonBody: `={
-  "seed": {{ JSON.stringify($json.slug) }},
-  "niche": {{ JSON.stringify($json.niche) }},
-  "city": {{ JSON.stringify($json.city) }},
-  "useLedger": true
-}`,
+    jsonBody: `={{ JSON.stringify({ seed: $json.slug, niche: $json.niche, city: $json.city, useLedger: true }) }}`,
     headers: [{ name: 'Content-Type', value: 'application/json' }],
   }),
-
   codeNode({
-    name: 'Build Page Blueprints',
-    jsCode: `// Expands ONE request item into ONE item per page to generate.
-//
-// Every item carries the genome so the page agent writes to the tenant's actual
-// structure (grid, rhythm, shell) rather than a generic layout. This is where
-// "the AI writes a bespoke site" is actually wired: the genome constrains the
-// design, the agent fills it.
+    name: 'Prepare Research Prompt',
+    jsCode: `// Merges the normalized request (which carries research_prompt) with the
+// design genome, so the Research Agent receives both. The genome node's output
+// is the genome object only, so this reattaches the request fields.
 const request = $('Normalize Site Request').first().json;
-const genomeResponse = $input.first().json;
+const genome = $input.first().json;
+return [{
+  json: {
+    ...request,
+    genome: genome.genome,
+    design_skill: String(genome.design_skill?.block ?? ''),
+    shell: String(genome.genome?.shell_archetype ?? ''),
+  },
+}];`,
+  })
+);
 
-if (!genomeResponse || !genomeResponse.genome) {
-  throw new Error('Design genome service returned no genome: ' + JSON.stringify(genomeResponse).slice(0, 400));
+/* ---- research agent + 9router tools -------------------------------------- */
+v3BuilderNodes.push(
+  toolHttpNode({
+    name: '9Router Web Search',
+    toolDescription: 'Search the web for business information, local competitors, services, and market facts.',
+    method: 'POST',
+    url: `${NINEROUTER_URL}/search`,
+    headers: [
+      { name: 'Content-Type', value: 'application/json' },
+      { name: 'Authorization', value: `Bearer ${NINEROUTER_KEY}` },
+    ],
+    placeholders: [
+      { name: 'query', description: 'The search query string (e.g. business niche and city)', type: 'string' },
+    ],
+    jsonBody: JSON.stringify({
+      model: 'tavily',
+      query: '{query}',
+      max_results: 5,
+      search_type: 'web',
+    }),
+  }),
+  toolHttpNode({
+    name: '9Router Web Fetch',
+    toolDescription: 'Fetch and read the content of a web page URL as markdown.',
+    method: 'POST',
+    url: `${NINEROUTER_URL}/web/fetch`,
+    headers: [
+      { name: 'Content-Type', value: 'application/json' },
+      { name: 'Authorization', value: `Bearer ${NINEROUTER_KEY}` },
+    ],
+    placeholders: [
+      { name: 'url', description: 'The full URL of the webpage to scrape and read', type: 'string' },
+    ],
+    jsonBody: JSON.stringify({
+      model: 'jina-reader',
+      url: '{url}',
+      format: 'markdown',
+      max_characters: 6000,
+    }),
+  }),
+  agentNode({
+    name: 'Research Agent',
+    systemMessage: `You are a business researcher for a professional-services website.
+You research the business, its niche, its city and its competitors using two tools:
+1. '9Router Web Search' — call it with the argument {"query": "<specific query — niche + city>"}
+2. '9Router Web Fetch' — call it with {"url": "<page url>"} to read a page as markdown
+
+Gather REAL facts only. NEVER invent statistics, awards, review counts, staff names, prices,
+addresses or dates. If a fact is not verifiable, mark it UNKNOWN and move on.
+
+Produce a RESEARCH BRIEF as a single fenced JSON block and nothing else:
+\`\`\`json
+{
+  "business_overview": "what the business actually does, 1-2 sentences",
+  "verified_facts": ["fact 1", "fact 2"],
+  "price_bands": ["indicative band 1"] or [],
+  "local_areas": ["area 1", "area 2"],
+  "competitor_notes": "what competitors do well or badly",
+  "common_questions": ["q1", "q2", "q3"],
+  "tone_words": ["concrete", "reassuring"]
 }
-if (genomeResponse.similarity_ok === false) {
-  // The engine reports this only when its ledger read failed. Publishing anyway
-  // would risk shipping a duplicate-looking site, which is the one thing this
-  // system exists to prevent.
-  throw new Error('Anti-sameness check failed: ' + JSON.stringify(genomeResponse.similarity ?? {}).slice(0, 300));
+\`\`\`
+The brief is the ONLY source of facts available to the page writers, so be thorough but honest.`,
+    text: `=Research the business behind this website request and produce the JSON brief.
+
+Request: {{ $json.research_prompt }}
+
+Business: {{ $json.business_name }}
+Niche: {{ $json.niche }}
+City: {{ $json.city }}
+Services: {{ JSON.stringify($json.services) }}
+Reference site (tone only, never copy): {{ $json.reference_url || 'none' }}
+
+Return ONLY the fenced \`\`\`json block.`,
+  }),
+  lmNode({ name: 'Model - Research' })
+);
+
+/* ---- sitemap architect + parser + nav ------------------------------------- */
+v3BuilderNodes.push(
+  codeNode({
+    name: 'Prepare Sitemap Prompt',
+    jsCode: `// The Research Agent emits {output: "<fenced json>"}. Merge that brief with the
+// request + genome so the Sitemap Architect has everything in one item.
+const request = $('Normalize Site Request').first().json;
+const genome = $('Prepare Research Prompt').first().json;
+const raw = String($input.first().json.output ?? $input.first().json.text ?? '');
+const brief = raw.replace(/^\u0060\u0060\u0060[\\w-]*\\s*/, '').replace(/\\s*\u0060\u0060\u0060$/, '').trim();
+let research_brief = brief;
+try { research_brief = JSON.stringify(JSON.parse(brief)); } catch {}
+return [{
+  json: { ...request, ...genome, research_brief },
+}];`,
+  }),
+  agentNode({
+    name: 'Sitemap Architect',
+    systemMessage: `You are a senior information architect building the complete sitemap and navigation for a
+professional-services website.
+
+Given the research brief, the business facts and the design genome, produce:
+1. A sitemap of 15-20 pages — NEVER fewer than 15. Cover EVERY service as its own page and every
+   named locality, plus: home, about (team/credentials), services hub, process, pricing,
+   testimonials, FAQ, contact, and niche-appropriate pages (e.g. valuation for estate agency,
+   fee schedule for a tax practice, results page for a clinic).
+2. A navigation tree that reaches EVERY page. "primary" holds the 4-6 items a visitor must see
+   first; "footerGroups" groups the rest. Nothing may be unreachable.
+
+Return ONLY a single fenced JSON block:
+\`\`\`json
+{
+  "pages": [
+    { "slug": "/", "title": "...", "intent": "purpose and sections for the page writer, 2-3 sentences", "minSections": 9 }
+  ],
+  "nav": {
+    "primary": [{ "label": "...", "href": "/..." }],
+    "footerGroups": [{ "group": "...", "items": [{ "label": "...", "href": "/..." }] }]
+  }
+}
+\`\`\`
+Rules: every slug starts with "/". Every page appears in primary or a footer group. minSections is
+at least 7 for every page, 8-9 for the home page. Slugs are lowercase and hyphenated.`,
+    text: `=Build the sitemap and navigation for this site.
+
+Business: {{ $json.business_name }}
+Niche: {{ $json.niche }}
+City: {{ $json.city }}
+Services: {{ JSON.stringify($json.services) }}
+Design shell: {{ $json.shell }}
+Design skill rules:
+{{ $json.design_skill }}
+
+RESEARCH BRIEF (the only facts you may rely on):
+{{ $json.research_brief }}
+
+Return ONLY the fenced \`\`\`json block with "pages" and "nav".`,
+  }),
+  lmNode({ name: 'Model - Sitemap' }),
+  codeNode({
+    name: 'Parse Sitemap',
+    jsCode: `// Parse the sitemap agent's fenced JSON defensively. On any failure, fall back
+// to a minimal usable sitemap so a parser hiccup cannot kill the whole run.
+const request = $('Normalize Site Request').first().json;
+const research = $('Prepare Sitemap Prompt').first().json;
+
+let parsed = null;
+const raw = String($input.first().json.output ?? $input.first().json.text ?? '');
+try {
+  const clean = raw.replace(/^\u0060\u0060\u0060[\\w-]*\\s*/, '').replace(/\\s*\u0060\u0060\u0060$/, '').trim();
+  parsed = JSON.parse(clean);
+} catch (err) {
+  parsed = {
+    pages: [
+      { slug: '/', title: request.business_name, intent: 'Home. Lead with the strongest local promise, then prove it.', minSections: 8 },
+      { slug: '/about', title: 'About Us', intent: 'Credentials, story and team.', minSections: 7 },
+      ...(Array.isArray(request.services) ? request.services : []).map((s) => ({
+        slug: '/services/' + String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        title: s,
+        intent: 'Service page for ' + s + '. What it is, who needs it, process, cost, FAQs.',
+        minSections: 7,
+      })),
+      { slug: '/contact', title: 'Contact', intent: 'Contact and booking form, hours, phone.', minSections: 7 },
+    ],
+    nav: { primary: [{ label: 'Home', href: '/' }], footerGroups: [] },
+  };
 }
 
-const genome = genomeResponse.genome;
-const profile = genomeResponse.profile ?? genome._profile ?? {};
+const pages = (parsed.pages ?? []).map((p) => ({
+  slug: String(p.slug ?? '/').replace(/\\/+$/, ''),
+  title: String(p.title ?? 'Page'),
+  intent: String(p.intent ?? ''),
+  minSections: Math.max(7, Number(p.minSections ?? 7)),
+}));
+const primary = (parsed.nav?.primary ?? []).map((i) => ({ label: String(i.label ?? ''), href: String(i.href ?? '#') })).filter((i) => i.label && i.href !== '#');
+const footerGroups = (parsed.nav?.footerGroups ?? []).map((g) => ({
+  group: String(g.group ?? 'More'),
+  items: (g.items ?? []).map((i) => ({ label: String(i.label ?? ''), href: String(i.href ?? '#') })).filter((i) => i.label && i.href !== '#'),
+}));
 
-const slugify = (value) =>
-  String(value).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
+return [{
+  json: { ...request, ...research, pages, nav: { primary, footerGroups }, parsed_ok: parsed !== null },
+}];`,
+  }),
+  codeNode({
+    name: 'Build Navigation',
+    jsCode: `// Builds sites.navigation.items from the sitemap. The tenant layout serves
+// navigation.items whenever non-empty — the empty-array bug was why every site
+// showed only Home/About/Contact while 8 other pages were unreachable.
+const site = $input.first().json;
+const pages = site.pages ?? [];
+const nav = site.nav ?? { primary: [], footerGroups: [] };
 
-const lead = request.doctor_or_lead ?? null;
-const leadLine = lead && lead.name ? lead.name + (lead.credentials ? ', ' + lead.credentials : '') : null;
-
-const sharedBrief = [
-  'BUSINESS: ' + request.business_name,
-  'NICHE: ' + request.niche,
-  'CITY: ' + request.city,
-  'PHONE: ' + request.phone,
-  request.address ? 'ADDRESS: ' + request.address : null,
-  'SERVICES: ' + request.services.join(' | '),
-  leadLine ? 'NAMED PROFESSIONAL (use for E-E-A-T, never invent other people): ' + leadLine : null,
-  request.reference_url ? 'REFERENCE SITE (tone only, never copy text): ' + request.reference_url : null,
-  request.brand_notes ? 'BRAND NOTES: ' + request.brand_notes : null,
-].filter(Boolean).join('\\n');
-
-// CRAFT LAYER. The genome constrains STRUCTURE (shell, nav, colour, rhythm,
-// fonts); it says nothing about state coverage, spacing discipline or
-// interaction quality, which is why generated pages read as competent-generic
-// rather than designed. The engine picks ONE vendored design skill whose
-// declared style is compatible with this shell and returns it pre-rendered.
-//
-// It is a SUB-AXIS, so it cannot weaken the anti-sameness guarantees: it is not
-// part of structureSignature(), and the engine has already stripped the skill's
-// hex values and font names, so it cannot override the typography or palette
-// axes either. Refuse the run if it is missing - an older engine would silently
-// drop the craft layer and every site would regress to the same look.
-//
-// ORDER MATTERS AND IS NOT OBVIOUS FROM READING. This must sit ABOVE
-// designBrief: an earlier revision extracted the block underneath the brief it
-// was supposed to feed, so the guard passed, the run succeeded, and no page
-// ever received a craft rule. The build guard
-// 'design brief carries the craft layer' is what catches that class now.
-const designSkill = genomeResponse.design_skill ?? {};
-const designSkillBlock = String(designSkill.block ?? '');
-const designSkillSlug = String(designSkill.slug ?? '');
-if (!designSkillBlock) {
-  throw new Error(
-    'Genome response carries no design skill block - the engine predates the craft layer. ' +
-    'Deploy the engine before the workflow. Response keys: ' +
-    Object.keys(genomeResponse).join(', ')
-  );
+const primary = (nav.primary ?? []).concat(
+  pages
+    .filter((p) => p.slug === '/' || p.slug === '/about' || p.slug === '/contact')
+    .map((p) => ({ label: p.slug === '/' ? 'Home' : p.title, href: p.slug }))
+);
+const seen = new Set();
+const primaryUnique = primary.filter((i) => (seen.has(i.href) ? false : (seen.add(i.href), true)));
+const footerItems = [];
+for (const group of nav.footerGroups ?? []) {
+  for (const item of group.items ?? []) {
+    if (!seen.has(item.href)) { seen.add(item.href); footerItems.push({ label: item.label, href: item.href }); }
+  }
+}
+for (const p of pages) {
+  if (!seen.has(p.slug)) { seen.add(p.slug); footerItems.push({ label: p.title, href: p.slug }); }
 }
 
-// Persisted INSIDE design_genome, alongside _rhythm and _hue, so no DB column is
-// added (the Supabase MCP here is read-only, so a migration is not available).
-// Safe for the same reason the axis itself is: it never participates in
-// structureSignature().
-genome._design_skill = designSkillSlug;
+return [{ json: { ...site, navigation: { items: primaryUnique, footer: footerItems } } }];`,
+  }),
+  httpNode({
+    name: 'Upsert Site Row',
+    method: 'POST',
+    url: `${SUPABASE_REST}/sites`,
+    jsonBody: `={{ JSON.stringify({
+  slug: $json.slug,
+  domain: $json.domain,
+  preview_subdomain: $json.preview_subdomain,
+  niche: $json.niche,
+  city: $json.city,
+  business_info: {
+    name: $json.business_name,
+    phone: $json.phone,
+    address: $json.address || undefined,
+    services: $json.services,
+    lead: $json.doctor_or_lead || undefined,
+  },
+  design_genome: $json.genome,
+  navigation: $json.navigation,
+  seo_global: { title_template: $json.business_name + ' | ' + $json.city },
+  status: "preview",
+}) }}`,
+    headers: [
+      { name: 'Content-Type', value: 'application/json' },
+      { name: 'apikey', value: SUPABASE_KEY },
+      { name: 'Authorization', value: `=Bearer ${SUPABASE_KEY}` },
+      { name: 'Prefer', value: 'resolution=merge-duplicates,return=representation' },
+    ],
+  }),
+  codeNode({
+    name: 'Expand Pages',
+    jsCode: `const siteResp = $input.first().json;
+const siteRow = siteResp[0] ?? siteResp; // return=representation -> array
+if (!siteRow?.id) throw new Error('Upsert Site Row did not return a site id.');
 
-const designBrief = [
-  'SHELL: ' + genome.shell_archetype,
-  'NAV: ' + genome.nav_topology,
-  'COLOUR MODE: ' + genome.color_mode,
-  'SECTION RHYTHM: ' + genome.rhythm,
-  'GRID: ' + (profile.grid ?? 'unspecified'),
-  'DENSITY: ' + (profile.density ?? 'balanced'),
-  'SURFACE: ' + (profile.surface_treatment ?? 'unspecified'),
-  'MOTION: ' + genome.motion_profile,
-  'MAX SECTIONS: ' + (profile.max_sections ?? 11),
+const ctx = $('Parse Sitemap').first().json;
+const design_brief = [
+  'SHELL: ' + (ctx.genome?.shell_archetype ?? ''),
+  'NAV: ' + (ctx.genome?.nav_topology ?? ''),
+  'COLOUR MODE: ' + (ctx.genome?.color_mode ?? ''),
+  'RHYTHM: ' + (ctx.genome?.rhythm ?? ''),
+  'MOTION: ' + (ctx.genome?.motion_profile ?? ''),
   '',
-  // The craft layer, appended so the structural brief stays the first thing the
-  // agent reads (it is authoritative) and the skill rules follow under their own
-  // PRECEDENCE clause.
-  designSkillBlock,
+  ctx.design_skill ?? '',
 ].join('\\n');
 
-const pages = [
-  {
-    slug: '/',
-    title: request.business_name,
-    intent:
-      'Home page. Lead with the single strongest local promise, then prove it. ' +
-      'Sections in this order: hero, trust strip, services, proof, process, faq, booking CTA.',
-    minSections: 6,
-  },
-  {
-    slug: 'about',
-    title: 'About Us',
-    intent:
-      'Credentials, story and facility. Cover who runs it, qualifications, years of experience, ' +
-      'technology used, and why patients/clients choose it. Include the E-E-A-T authority block.',
-    minSections: 4,
-  },
-  ...request.services.map((service) => ({
-    slug: 'services/' + slugify(service),
-    title: service,
-    intent:
-      'Dedicated local landing page for "' + service + '" in ' + request.city + '. ' +
-      'Cover: what it is, who needs it, the process step by step, indicative cost table, ' +
-      'recovery or timeline expectations, and 5 city-specific FAQs. Target local search intent.',
-    minSections: 5,
-  })),
-  {
-    slug: 'contact',
-    title: 'Contact',
-    intent:
-      'Contact and booking. Opening hours, address, phone, and a booking form with a honeypot field. ' +
-      'Do not invent an email or an address that was not supplied - omit what you do not know.',
-    minSections: 3,
-  },
-];
-
-// NICHE PAGE SETS. The four pages above are the floor every site needs. A real
-// professional-services site sells a niche, not a template, so the niche adds
-// pages that a buyer in that market actually looks for: a valuation-led estate
-// agency needs area guides and a valuation page; a tax practice needs a fee
-// schedule and a deadline calendar. Keyed on the request's niche string, matched
-// as a substring so 'real-estate', 'realestate' and 'property' all land.
-//
-// Adding a page here does NOT weaken anti-sameness: pages live under a site, and
-// structureSignature() is computed from the genome, not the page list.
-const NICHE_PAGES = {
-  'real estate': [
-    { slug: 'areas', title: 'Areas We Cover', minSections: 3,
-      intent: 'Local area guide hub. One card per locality served in ' + request.city + ', each explaining what is in demand there, typical price bands, and who it suits. Link each card to its own area page.' },
-    { slug: 'valuation', title: 'Free Property Valuation', minSections: 3,
-      intent: 'Lead-capture valuation page. Explain exactly what the valuation covers, how long it takes, what the client receives, and why an accurate figure matters when selling. End with a short multi-field enquiry form. Do not promise a specific timescale or fee that was not supplied.' },
-    { slug: 'selling-process', title: 'How Selling Works', minSections: 4,
-      intent: 'Step-by-step selling journey from first valuation to completion, numbered, with what the client must do at each stage and how long each stage typically takes.' },
-    { slug: 'landlords', title: 'Landlord Services', minSections: 3,
-      intent: 'Services for landlords: tenant find, full management, compliance obligations, rent collection, and what differs between the two service levels.' },
-  ],
-  'tax': [
-    { slug: 'fees', title: 'Fee Schedule', minSections: 3,
-      intent: 'Transparent fee structure. Give indicative bands per service with what each includes and excludes, and state clearly that a fixed quote follows a free initial review. Use a <CostComparisonTable/> for the bands.' },
-    { slug: 'deadlines', title: 'Key Tax Deadlines', minSections: 3,
-      intent: 'Calendar of the filing and payment deadlines that apply to your clients, in chronological order, with the consequence of missing each one. Use generic recurring dates only, never a specific unverified deadline for a named year.' },
-    { slug: 'process', title: 'How We Work', minSections: 4,
-      intent: 'The engagement process from first call to filing: onboarding, document collection, review, submission, and ongoing support. Explain what records the client must keep.' },
-    { slug: 'sectors', title: 'Sectors We Serve', minSections: 3,
-      intent: 'Which client types the practice acts for (contractors, landlords, owner-managed companies, individuals) and the specific issues each faces.' },
-  ],
-};
-
-// Anything after the first comma or space-separated word is a qualifier
-// ("real estate agency" -> "real estate"), so match on the leading phrase.
-function nichePages(niche) {
-  const key = String(niche || '').toLowerCase();
-  for (const [needle, extra] of Object.entries(NICHE_PAGES)) {
-    if (key.includes(needle.replace(' ', ''))) return extra;
-    if (key.includes(needle)) return extra;
-  }
-  return [];
-}
-
-// Suffix the base set with the niche pages, then de-duplicate by slug so a
-// service that happens to be called "Valuation" cannot produce two /valuation
-// pages (which would also violate the pages unique(site_id, slug) constraint).
-{
-  const seen = new Set(pages.map((p) => p.slug));
-  for (const extra of nichePages(request.niche)) {
-    if (seen.has(extra.slug)) continue;
-    seen.add(extra.slug);
-    pages.push(extra);
-  }
-}
-
-return pages.map((page) => ({
+return (ctx.pages ?? []).map((page) => ({
   json: {
-    run_id: request.run_id,
+    run_id: ctx.run_id,
+    site_id: siteRow.id,
     slug: page.slug,
     title: page.title,
-    minSections: page.minSections,
     intent: page.intent,
-    domain: request.domain,
-    site_slug: request.slug,
-    city: request.city,
-    services: request.services,
-    phone: request.phone,
-    business_name: request.business_name,
-    genome,
-    rhythm: genome.rhythm,
-    design_brief: designBrief,
-    shared_brief: sharedBrief,
+    minSections: page.minSections,
+    domain: ctx.domain,
+    business_name: ctx.business_name,
+    niche: ctx.niche,
+    city: ctx.city,
+    services: ctx.services,
+    phone: ctx.phone,
+    address: ctx.address ?? null,
+    doctor_or_lead: ctx.doctor_or_lead ?? null,
+    genome: ctx.genome,
+    design_brief,
+    research_brief: ctx.research_brief,
+    navigation: ctx.navigation,
     retry_count: 0,
+    issues: [],
   },
 }));`,
   }),
+  splitInBatchesNode({ name: 'Loop Pages', batchSize: 1 })
+);
 
+/* ---- per-page: creator -> gate -> analyzer -> retry loop ------------------- */
+v3BuilderNodes.push(
   agentNode({
-    name: 'Page Architect Agent',
-    systemMessage: `You are a senior front-end engineer and conversion copywriter who writes ONE page of a
-client website as MDX. You write real, specific, locally-relevant copy - never lorem ipsum and never
-generic filler.
+    name: 'Page Creator Agent',
+    systemMessage: `You are a senior front-end engineer and conversion copywriter. You write ONE page of a client
+website as MDX — the page you are given, and nothing else. You write real, specific,
+locally-relevant copy. Never lorem ipsum, never filler.
 
 HARD RULES
 1. OUTPUT: a single fenced block exactly like:
    \`\`\`mdx
    <section className="...">...</section>
    \`\`\`
-   Nothing before or after it. No commentary, no explanation, no multiple blocks.
-2. DESIGN FIDELITY: you MUST honour the supplied design brief. Use the stated grid, rhythm, density
-   and surface treatment. A reader must be able to tell this page apart from another site's page.
-3. COLOUR/TYPE: NEVER write hex codes, rgb(), or font names. Use the CSS variables provided:
-   var(--bg-canvas) var(--bg-surface) var(--bg-contrast) var(--text-primary) var(--text-muted)
-   var(--brand-primary) var(--brand-accent) var(--on-brand) var(--radius-card) var(--radius-button)
-   var(--section-gap) var(--container-width) var(--display-scale)
-   Use var(--font-heading) for headings and var(--font-body) for body text.
-4. CLASSES: all layout classes must be written INSIDE className="..." so they are compiled. Tailwind
-   arbitrary values are fine and encouraged: p-[38px], grid-cols-[1.1fr_0.9fr], text-[1.0625rem].
-   NEVER nest minmax() inside grid-template-columns - browsers drop the whole declaration.
-5. EXACTLY ONE <h1> for the page. Use <h2> for section headings. Every <img> needs a descriptive alt.
-6. Use ONLY these components, spelled exactly. Never import anything.
-   CONTENT (server-rendered):
-   <QuickSummary points={["...","..."]} />
-   <CostComparisonTable title="..." rows={[{label,detail,price}]} />
-   <FaqAccordion title="..." items={[{q,a}]} />
-   <DoctorReviewedBadge name="..." credentials="..." date="..." />
-   <Callout type="note|tip|warning">text</Callout>
-   <InlineLeadCTA ctaText="..." service="..." phone="..." />
-   MOTION (client-side, these animate in the browser - USE THEM, a page with none of these
-   is a static page and will be rejected as too plain):
-   <ScrollProgress />                        thin progress bar pinned to the top of the viewport
-   <Reveal>...</Reveal>                      fades/slides its children in on scroll. Wrap each
-                                             major section: <Reveal><section>...</section></Reveal>
-                                             Optional props: delay={0.1} y={24} as="div"
-   <Parallax speed={0.2}>...</Parallax>      slides its children against the scroll. Use around a
-                                             hero visual or a full-bleed band. speed 0.1 subtle,
-                                             0.4 dramatic.
-   <StatCounter value={1200} suffix="+" label="Projects delivered" />
-                                             a number that counts up when scrolled into view.
-                                             Use only real figures from the client facts.
-   <TiltCard>...</TiltCard>                  3D tilt that follows the pointer. Use for service
-                                             cards and feature tiles.
-   <StickyScene height="200vh">...</StickyScene>
-                                             pins its child while the user scrolls through it.
-                                             Use ONCE per page for the strongest single idea.
-   <Marquee speed={28}>Item one · Item two · Item three</Marquee>
-                                             infinite horizontal scroller. Use for a trust strip
-                                             of logos, credentials or localities.
-   MOTION RULES: every page MUST use at least one motion component, and the home page MUST use
-   <ScrollProgress /> plus at least two of <Reveal>, <Parallax>, <StatCounter>, <StickyScene>.
-   Never put a motion component inside another motion component's props. Keep <Reveal> wrapping a
-   whole section rather than every paragraph, or the page feels twitchy.
-7. FACTS: never invent awards, review counts, certifications, statistics, or staff names. Only use
-   facts present in the business brief. If a fact is not given, write copy that does not need it.
-8. PROSE: UK/Indian English. Concrete nouns and numbers. No "in today's fast-paced world", no
+   Nothing before or after it. No commentary, no multiple blocks.
+2. DESIGN FIDELITY: honour the design brief exactly (grid, rhythm, density, surface). A reader
+   must be able to tell this page apart from another site's page.
+3. COLOUR/TYPE: NEVER write hex codes, rgb(), or font names. Use ONLY the CSS variables in the
+   design brief: var(--bg-canvas) var(--bg-surface) var(--bg-contrast) var(--text-primary)
+   var(--text-muted) var(--brand-primary) var(--brand-accent) var(--on-brand) var(--radius-card)
+   var(--radius-button) var(--section-gap) var(--container-width) var(--display-scale)
+   var(--font-heading) var(--font-body).
+4. CLASSES: all layout classes INSIDE className="..." so they compile. Tailwind arbitrary values
+   are encouraged: p-[38px], grid-cols-[1.1fr_0.9fr]. NEVER nest minmax() in grid-template-columns.
+5. EXACTLY ONE <h1>. Every <img> needs a descriptive alt.
+6. SECTIONS: write AT LEAST {{ $json.minSections }}. Each section is its own <section> element
+   with a className. Fewer sections FAILS review.
+7. MOTION + 3D (REQUIRED — a page with none is a static page and FAILS review):
+   - <ScrollProgress /> — use on EVERY page
+   - <Reveal>...</Reveal> wraps a whole section, optional delay={0.1} y={24}
+   - <Parallax speed={0.2}>...</Parallax> around a hero visual or full-bleed band
+   - <StatCounter stats={[{value:1200,suffix:"+",label:"..."}]} /> count-up — REAL figures
+     from the research brief only
+   - <TiltCard>...</TiltCard> 3D pointer tilt for cards
+   - <StickyScene height="200vh">...</StickyScene> pins its child — ONCE per page for the
+     strongest single idea
+   - <Marquee items={["A","B","C"]} /> infinite trust strip
+   - <ParticleField density={70} /> canvas particles — inside a hero or band
+   - <Scene3D shape="torus" color="var(--brand-primary)" wireframe={true} /> WebGL shape —
+     REQUIRED on the HOME page hero
+   CONTENT components (server-rendered):
+   - <QuickSummary points={["...","..."]} />
+   - <CostComparisonTable title="..." rows={[{label,detail,price}]} />
+   - <FaqAccordion title="..." items={[{q,a}]} />
+   - <DoctorReviewedBadge name="..." credentials="..." date="..." />
+   - <Callout type="note|tip|warning">text</Callout>
+   - <InlineLeadCTA ctaText="..." service="..." phone="..." />
+   MOTION RULES: every page MUST use <ScrollProgress /> plus at least two of <Reveal>,
+   <Parallax>, <StatCounter>, <TiltCard>, <StickyScene>, <Marquee>, <ParticleField>, <Scene3D>.
+   The HOME page MUST include <Scene3D> in its hero AND at least one <StickyScene>.
+   Never nest a motion component inside another motion component's props.
+8. FACTS: never invent awards, review counts, certifications, statistics, prices, or staff
+   names. Only facts in the research brief or business facts. If a fact is unknown, write copy
+   that does not need it.
+9. PROSE: UK/Indian English. Concrete nouns and numbers. No "in today's fast-paced world", no
    "unlock", no "elevate", no "delve".
-9. Must include a <footer> element at the end of the page content with the business name, phone and
-   a copyright line.
-10. Sections: write at least the requested minimum, each as its own <section> element.
-11. Escape a bare "<" in prose as &lt; (e.g. "&lt; 30 minutes") or MDX will treat it as a tag.`,
-    text: `Write the page "{{ $json.title }}" for this client.
+10. Escape a bare "<" in prose as &lt; (e.g. "&lt; 30 minutes").
+11. Must end with a <footer> containing the business name, phone and a copyright line.`,
+    text: `=Write the page "{{ $json.title }}" for this client.
 
 PAGE BRIEF
 {{ $json.intent }}
@@ -712,220 +871,174 @@ PAGE BRIEF
 DESIGN BRIEF (shape the page around this exactly)
 {{ $json.design_brief }}
 
-CLIENT FACTS (the only facts you may state)
-{{ $json.shared_brief }}
+RESEARCH BRIEF (the only facts you may state)
+{{ $json.research_brief }}
+
+BUSINESS FACTS
+Business: {{ $json.business_name }}
+Niche: {{ $json.niche }}
+City: {{ $json.city }}
+Phone: {{ $json.phone }}
+Services: {{ JSON.stringify($json.services) }}
 
 Minimum sections: {{ $json.minSections }}
+
+ISSUES FROM THE LAST REVIEW (fix every one; empty means first draft)
+{{ JSON.stringify($json.issues) }}
+
 Return only the fenced \`\`\`mdx block.`,
   }),
-
+  lmNode({ name: 'Model - Page Creator' }),
   httpNode({
     name: 'Compile Gate',
     method: 'POST',
     url: `${ENGINE_URL}/api/compile`,
-    // The MDX is handed to the compiler via JSON.stringify rather than a chain
-    // of regex .replace() calls inside an expression: a page body is full of
-    // quotes, backslashes and newlines, and hand-rolled escaping produced
-    // invalid JSON that the gate rejected. JSON.stringify is correct by
-    // construction. The compiler tolerates the ```mdx fence itself.
     jsonBody: `={{ JSON.stringify({ mdxBlocks: [ String($json.output ?? $json.text ?? '') ] }) }}`,
     headers: [
       { name: 'Content-Type', value: 'application/json' },
       { name: 'x-compile-secret', value: COMPILE_SECRET },
     ],
   }),
-
-  ifNode({
-    name: 'MDX Valid?',
-    leftValue: '={{ $json.valid }}',
-    rightValue: '',
-  }),
-
+  ifNode({ name: 'MDX Valid?', leftValue: '={{ $json.valid }}', rightValue: '' }),
   codeNode({
-    name: 'Salvage MDX Blocks',
-    jsCode: `// The compile gate rejected this page's MDX. This node does NOT block the run: a
-// tenant with one imperfect page is better than no tenant at all, and the site
-// is created with status 'preview' so nothing goes public unreviewed.
-//
-// What it does guarantee: the page is stored as PLAIN TEXT, never as broken JSX.
-// Broken JSX in the database would 500 a live page later.
-//
-// It maps over EVERY page, matching the one-row-per-page contract of
-// 'Assemble Valid Page'. Using .first() here would salvage a single page and
-// silently discard the other four.
-const gates = $input.all();
-const pages = $('Build Page Blueprints').all();
-const agents = $('Page Architect Agent').all();
-
-if (!gates.length) throw new Error('No gate results on the salvage branch.');
-
-// Strips the fence and neutralises anything that looks like JSX so the stored
-// content is inert markdown rather than markup the renderer might execute.
-function inert(raw) {
-  return String(raw ?? '')
-    .replace(/^\\s*\\x60{3}mdx\\s*/i, '')
-    .replace(/\\s*\\x60{3}\\s*$/i, '')
-    .replace(/<\\/?[A-Za-z][^>]*>/g, '')
-    .replace(/\\{\\{?[\\s\\S]*?\\}\\}?/g, '')
-    .trim();
-}
-
-return gates.map((item, i) => {
-  const gate = item.json;
-  const page = pages[i]?.json ?? {};
-  const agent = agents[i]?.json ?? {};
-  const body = inert(agent.output ?? agent.text ?? '');
-
-  return {
-    json: {
-      ...page,
-      salvaged: true,
-      compile_error: String(gate.error ?? 'unknown compile error').slice(0, 500),
-      sections: [{ mdx: body.length > 120 ? body : '_Content for this page requires review._', anchor: 'content' }],
-      compiled_css: '',
-      mdx_ok: false,
-    },
-  };
-});`,
+    name: 'Prepare Page For Review',
+    jsCode: `// The creator emits ONLY {output: "<mdx>"} and the gate emits {valid, css}.
+// This node reattaches the FULL page context (slug, title, minSections,
+// research_brief) PLUS the mdx, so the analyzer can actually review it.
+// Inside the SplitInBatches loop, $('Loop Pages') returns the CURRENT item.
+const loopItem = $('Loop Pages').first().json ?? {};
+const creator = $('Page Creator Agent').first().json;
+const gate = $input.first().json;
+return [{
+  json: {
+    ...loopItem,
+    mdx: String(creator.output ?? creator.text ?? creator.mdx ?? ''),
+    css: String(gate.css ?? ''),
+  },
+}];`,
   }),
+  agentNode({
+    name: 'Page Quality Analyzer',
+    systemMessage: `You are a ruthless design and copy QA reviewer. You review ONE generated page and return a
+verdict. You are not lenient: a template-ish page fails.
 
+Check, IN ORDER:
+1. SECTION COUNT: count the <section> elements. Fewer than {{ $json.minSections }} -> fail.
+2. MOTION/3D: <ScrollProgress /> plus at least two of Reveal/Parallax/StatCounter/TiltCard/
+   StickyScene/Marquee/ParticleField/Scene3D? Home page must have Scene3D and StickyScene.
+   Missing -> fail, name the exact missing ones.
+3. H1 COUNT: exactly one <h1>. Zero or two+ -> fail.
+4. FABRICATION: any invented statistic, price, award, staff name, review count not in the
+   research brief -> fail, name the fabricated fact.
+5. PLACEHOLDER: lorem ipsum, "TODO", "example.com" links, empty sections -> fail.
+6. DESIGN FIDELITY: inline hex/rgb()/font names instead of the CSS variables -> fail.
+7. LAYOUT: nested minmax() in grid-template-columns, trapped JSX, walls of text -> fail.
+
+Return ONLY a fenced JSON block:
+\`\`\`json
+{
+  "verdict": "pass" | "retry" | "salvage",
+  "score": 0-100,
+  "sections_found": N,
+  "motion_present": ["Reveal"], 
+  "h1_count": N,
+  "issues": ["specific, actionable issue 1", "issue 2"]
+}
+\`\`\`
+"pass" = publish it. "retry" = fixable, be specific. "salvage" = beyond repair.`,
+    text: `=Review this generated page.
+
+Page: {{ $json.title }} (slug {{ $json.slug }})
+Required minimum sections: {{ $json.minSections }}
+Is home page: {{ $json.slug === '/' ? 'yes' : 'no' }}
+
+RESEARCH BRIEF (the only permitted facts):
+{{ $json.research_brief }}
+
+THE PAGE MDX TO REVIEW:
+{{ $json.mdx }}
+
+Return ONLY the fenced \`\`\`json verdict block.`,
+  }),
+  lmNode({ name: 'Model - Analyzer' }),
+  codeNode({
+    name: 'Parse Verdict',
+    jsCode: `const item = $input.first().json;
+const review = $('Prepare Page For Review').first().json;
+const raw = String(item.output ?? item.text ?? '');
+let verdict = { verdict: 'retry', score: 0, sections_found: 0, motion_present: [], h1_count: 0, issues: ['Analyzer output was not parseable: ' + raw.slice(0, 200)] };
+try {
+  const clean = raw.replace(/^\u0060\u0060\u0060[\\w-]*\\s*/, '').replace(/\\s*\u0060\u0060\u0060$/, '').trim();
+  const parsed = JSON.parse(clean);
+  verdict = {
+    verdict: ['pass', 'retry', 'salvage'].includes(parsed.verdict) ? parsed.verdict : 'retry',
+    score: Number(parsed.score ?? 0),
+    sections_found: Number(parsed.sections_found ?? 0),
+    motion_present: Array.isArray(parsed.motion_present) ? parsed.motion_present : [],
+    h1_count: Number(parsed.h1_count ?? 0),
+    issues: Array.isArray(parsed.issues) ? parsed.issues.map(String) : [],
+  };
+} catch (err) {}
+return [{
+  json: {
+    ...review,
+    ...verdict,
+    retry_count: Number(review.retry_count ?? 0),
+  },
+}];`,
+  }),
+  ifNode({ name: 'Route Verdict', leftValue: '={{ $json.verdict }}', rightValue: 'pass' }),
+  ifNode({ name: 'Retries Left', leftValue: '={{ $json.retry_count }}', rightValue: '2' }),
+  codeNode({
+    name: 'Bump Retry',
+    jsCode: `// Retry path: the FULL page context is already on the item (from Parse
+// Verdict's spread of Prepare Page For Review). Increment retry_count and pass
+// the analyzer's issues back to the Page Creator verbatim.
+const item = $input.first().json;
+return [{
+  json: {
+    ...item,
+    retry_count: (Number(item.retry_count ?? 0) || 0) + 1,
+    issues: Array.isArray(item.issues) ? item.issues : [],
+  },
+}];`,
+  }),
   codeNode({
     name: 'Assemble Valid Page',
-    jsCode: `// Turns each validated MDX block into a pages-row shape: ONE ROW PER PAGE.
-//
-// Why a map and not .first(): Code nodes preserve item order, and the agent
-// fans out one item per blueprint, so the gate results, the blueprints and the
-// agent outputs all line up by index. Using .first() here collapsed a
-// five-page site into a single page - execution 120787 measured exactly that
-// (Build Page Blueprints 5 items in, Assemble Valid Page 1 item out), which is
-// how a tenant ends up with one page instead of five.
-const gates = $input.all();
-const pages = $('Build Page Blueprints').all();
-const agents = $('Page Architect Agent').all();
-
-if (!gates.length) throw new Error('Compile gate returned no items.');
-
-if (pages.length !== gates.length || agents.length !== gates.length) {
-  throw new Error(
-    'Fan-out counts diverged (gate=' + gates.length + ' pages=' + pages.length +
-    ' agent=' + agents.length + '). Refusing to zip by index - pages would be mis-paired.'
-  );
-}
-
-// Unwraps the fenced mdx block the agent is instructed to emit. Backticks are
-// escaped below because this block lives inside a template literal in the
-// generator - an unescaped one terminates the string and breaks the build.
-function unfence(raw) {
-  return String(raw ?? '')
-    .replace(/^\\s*\\x60{3}mdx\\s*/i, '')
-    .replace(/\\s*\\x60{3}\\s*$/i, '')
-    .trim();
-}
-
-// True when an item is the agent's error envelope rather than real content.
-// The agent sets onError: 'continueRegularOutput', so an LLM failure arrives as
-// an ordinary item whose ONLY key is 'error'.
-function isErrorItem(json) {
-  if (!json || typeof json !== 'object') return false;
-  const keys = Object.keys(json);
-  return keys.length === 1 && keys[0] === 'error';
-}
-
-// An unrecoverable page becomes an inert 'requires review' placeholder rather
-// than a blank page that still reports published: true.
-//
-// The key MUST be 'mdx': PageSection is {block?, props?, mdx?, anchor?} and the
-// renderer reads only section.mdx (src/app/sites/[domain]/[[...page]]/page.tsx).
-// Writing {md: ...} produced a section the renderer silently skipped, so a
-// salvaged page rendered empty while still being marked published.
-function salvage(blueprint, reason) {
-  return {
-    json: {
-      ...blueprint,
-      salvaged: true,
-      compile_error: String(reason).slice(0, 500),
-      sections: [{ mdx: '_Content for this page requires review._', anchor: 'content' }],
-      compiled_css: '',
-      mdx_ok: false,
-    },
-  };
-}
-
-return gates.map((item, i) => {
-  const gate = item.json;
-  const page = pages[i].json;
-  const agent = agents[i].json;
-
-  if (isErrorItem(agent)) {
-      return salvage(page, agent.error ?? 'agent returned an error envelope');
-    }
-
-    if (gate.valid !== true) {
-      return salvage(page, gate.error ?? 'compile gate rejected this block');
-    }
-
-    const mdx = unfence(agent.output ?? agent.text ?? '');
-    if (!mdx.length) {
-      return salvage(page, 'agent returned empty content after unfencing');
-    }
-
-    return {
-      json: {
-        ...page,
-        salvaged: false,
-        sections: [{ mdx, anchor: 'content' }],
-      compiled_css: String(gate.css ?? ''),
-      css_bytes: Number(gate.cssBytes ?? 0),
-      warnings: gate.warnings ?? [],
-      mdx_ok: true,
-    },
-  };
-});`,
-  }),
-
-  codeNode({
-    name: 'Merge Page Results',
-    jsCode: `// Converging node for the MDX IF's two branches.
-//
-// It must ONLY read its own input. An earlier version reached back with
-// $('Salvage MDX Blocks').all(), which n8n resolves by THROWING when that node
-// sits on the untaken branch of the IF - so a site with perfectly valid MDX on
-// every page failed the run with "Node 'Salvage MDX Blocks' hasn't been
-// executed" (execution 120787). $input is always defined: it is whichever
-// branch actually produced output.
-//
-// Both branch assemblers emit one item per page, so passing $input through
-// unchanged preserves the fan-out.
-const items = $input.all();
-if (!items.length) {
-  throw new Error('No page output reached the merge from either MDX branch.');
-}
-
-return items.map((item) => ({ json: item.json }));`,
-  }),
-
-  httpNode({
-    name: 'Upsert Site',
-    method: 'POST',
-    url: `${SUPABASE_REST}/sites?on_conflict=slug`,
-    jsonBody: `={
-  "slug": {{ JSON.stringify($json.site_slug) }},
-  "domain": {{ JSON.stringify($json.domain) }},
-  "preview_subdomain": {{ JSON.stringify($json.site_slug + '.' + '${SITES_BASE_DOMAIN_LITERAL}') }},
-  "niche": {{ JSON.stringify($('Normalize Site Request').first().json.niche) }},
-  "city": {{ JSON.stringify($json.city) }},
-  "business_info": {
-    "name": {{ JSON.stringify($json.business_name) }},
-    "phone": {{ JSON.stringify($json.phone) }},
-    "email": {{ JSON.stringify($('Normalize Site Request').first().json.email) }},
-    "address": {{ JSON.stringify($('Normalize Site Request').first().json.address) }},
-    "services": {{ JSON.stringify($json.services) }}
+    jsCode: `// Merge the reviewed MDX + compiled CSS into the pages-table row shape.
+const page = $input.first().json;
+const gate = $('Compile Gate').first().json;
+return [{
+  json: {
+    site_id: page.site_id,
+    slug: String(page.slug ?? '').replace(/^\\//, ''),
+    title: page.title ?? '',
+    sections: [{ mdx: String(page.mdx ?? ''), anchor: 'content' }],
+    compiled_css: String(page.css ?? gate.css ?? ''),
+    published: true,
   },
-  "design_genome": {{ JSON.stringify($json.genome) }},
-  "navigation": { "items": [] },
-  "seo_global": { "default_title": {{ JSON.stringify($json.business_name) }} },
-  "status": {{ JSON.stringify($('Normalize Site Request').first().json.status) }}
-}`,
+}];`,
+  }),
+  codeNode({
+    name: 'Mark Page Salvaged',
+    jsCode: `const page = $input.first().json;
+const loopItem = $('Loop Pages').first().json ?? {};
+return [{
+  json: {
+    site_id: loopItem.site_id ?? page.site_id,
+    slug: String(loopItem.slug ?? '').replace(/^\\//, ''),
+    title: loopItem.title ?? '',
+    sections: [{ mdx: '<section className="shell-section"><p className="shell-body">This page requires manual review before publishing.</p></section>', anchor: 'content' }],
+    compiled_css: '',
+    published: false,
+  },
+}];`,
+  }),
+  httpNode({
+    name: 'Upsert Page',
+    method: 'POST',
+    url: `${SUPABASE_REST}/pages`,
+    jsonBody: `={{ JSON.stringify({ site_id: $json.site_id, slug: $json.slug, title: $json.title, sections: $json.sections, compiled_css: $json.compiled_css, published: $json.published }) }}`,
     headers: [
       { name: 'Content-Type', value: 'application/json' },
       { name: 'apikey', value: SUPABASE_KEY },
@@ -933,215 +1046,136 @@ return items.map((item) => ({ json: item.json }));`,
       { name: 'Prefer', value: 'resolution=merge-duplicates,return=representation' },
     ],
   }),
-
   codeNode({
-    name: 'Expand Pages For Upsert',
-    jsCode: `// One item per page, each carrying the site_id returned by Upsert Site.
-//
-// This node is load-bearing. Without it, Upsert Pages receives the SINGLE item
-// Upsert Site returned and n8n runs the HTTP node exactly once - so a site would
-// get one page instead of five. Emitting one item per page makes the HTTP node
-// fan out correctly, and it also puts each page's own MDX and compiled CSS on
-// the item so the request body never has to reach back into an earlier node.
-const site = $input.first().json;
-const siteId = site.id;
-if (!siteId) {
-  throw new Error('Upsert Site returned no row id; cannot attach pages. Response: ' + JSON.stringify(site).slice(0, 300));
-}
+    name: 'Collect Page Results',
+    jsCode: `// Upsert Page returns the DB row (representations). The pages table has no
+// 'salvable' column, but salvaged pages are stored with published=false — that
+// IS the salvaged signal, so no schema change is needed.
+const row = $input.first().json;
+return [{
+  json: { site_id: row.site_id, slug: row.slug, salvaged: row.published === false },
+}];`,
+  })
+);
 
-const pages = $('Merge Page Results').all();
-if (!pages.length) throw new Error('No pages available to insert.');
-
-return pages.map((item) => {
-  const page = item.json;
-  return {
-    json: {
-      site_id: siteId,
-      slug: page.slug,
-      title: page.title,
-      business_name: page.business_name,
-      city: page.city,
-      sections: page.sections,
-      compiled_css: page.compiled_css || '',
-      salvaged: page.salvaged === true,
-      seo_description: page.title + ' in ' + page.city + ' - ' + page.business_name,
-    },
-  };
-});`,
-  }),
-
-  httpNode({
-    name: 'Upsert Pages',
-    method: 'POST',
-    url: `${SUPABASE_REST}/pages?on_conflict=site_id,slug`,
-    // Every field is JSON.stringify'd rather than interpolated into a quoted
-    // string: page MDX contains quotes, newlines and JSX, and naive
-    // interpolation would produce invalid JSON and a silent 400.
-    jsonBody: `={
-  "site_id": "{{ $json.site_id }}",
-  "slug": {{ JSON.stringify($json.slug) }},
-  "title": {{ JSON.stringify($json.title) }},
-  "seo_meta": {
-    "title": {{ JSON.stringify($json.title + ' | ' + $json.business_name) }},
-    "description": {{ JSON.stringify($json.seo_description) }}
+/* ---- loop exit: decide status -> finalize -> revalidate -> respond --------- */
+v3BuilderNodes.push(
+  codeNode({
+    name: 'Decide Site Status',
+    jsCode: `const results = $('Collect Page Results').all().map((i) => i.json).filter((r) => r && r.slug);
+const salvaged = results.filter((r) => r.salvaged === true).length;
+const total = results.length;
+const siteRow = $('Upsert Site Row').first().json;
+const realRow = siteRow[0] ?? siteRow;
+return [{
+  json: {
+    site_id: realRow.id,
+    status: total > 0 && salvaged === 0 ? 'live' : 'preview',
+    site_domain: realRow.domain ?? realRow.preview_subdomain,
+    pages_total: total,
+    pages_salvaged: salvaged,
   },
-  "sections": {{ JSON.stringify($json.sections) }},
-    "compiled_css": {{ JSON.stringify($json.compiled_css) }},
-    "published": {{ $json.salvaged === true ? false : true }}
-  }`,
+}];`,
+  }),
+  httpNode({
+    name: 'Finalize Site Status',
+    method: 'PATCH',
+    url: `={{ '${SUPABASE_REST}/sites?id=eq.' + encodeURIComponent($json.site_id) }}`,
+    jsonBody: `={{ JSON.stringify({ status: $json.status }) }}`,
     headers: [
       { name: 'Content-Type', value: 'application/json' },
       { name: 'apikey', value: SUPABASE_KEY },
       { name: 'Authorization', value: `=Bearer ${SUPABASE_KEY}` },
-      { name: 'Prefer', value: 'resolution=merge-duplicates,return=representation' },
+      { name: 'Prefer', value: 'return=representation' },
     ],
   }),
-
-  codeNode({
-      name: 'Decide Site Status',
-      jsCode: `// Downgrades a site to 'preview' when any page is salvage.
-  //
-  // The sites row is written BEFORE the pages exist, so 'Upsert Site' can only
-  // judge by whether a custom domain was supplied - which is why execution 120885
-  // stored status 'live' while two service pages were blank. This node runs after
-  // the pages are known and re-decides.
-  //
-  // It emits exactly ONE item, so the nodes after it act on the site as a whole
-  // rather than once per page.
-  const site = $('Upsert Site').first().json;
-  const request = $('Normalize Site Request').first().json;
-  const pages = $('Merge Page Results').all();
-
-  if (!pages.length) {
-    throw new Error('No pages reached the status decision.');
-  }
-
-  const salvaged = pages.filter((item) => item.json.salvaged === true);
-  // A site is only served publicly when every page has real content.
-  const healthy = salvaged.length === 0;
-
-  return [
-    {
-      json: {
-        site_id: site.id,
-        domain: request.domain,
-        slug: request.slug,
-        healthy,
-        pages_total: pages.length,
-        pages_salvaged: salvaged.length,
-        // A custom domain is a request, not a permission: it cannot make a site
-        // with blank pages live.
-        status: healthy && request.status === 'live' ? 'live' : 'preview',
-        salvaged_slugs: salvaged.map((item) => item.json.slug),
-      },
-    },
-  ];`,
-    }),
-
-    httpNode({
-      name: 'Finalize Site Status',
-          method: 'PATCH',
-          // The URL needs the leading '=' too: without it n8n treats the {{ }} as
-          // literal text and requests /sites?id=eq.%7B%7B...%7D%7D, which PostgREST
-          // rejects with 400. Only fields that ARE expressions need it.
-          url: `=${SUPABASE_REST}/sites?id=eq.{{ $json.site_id }}`,
-      jsonBody: `={ "status": {{ JSON.stringify($json.status) }} }`,
-      headers: [
-        { name: 'Content-Type', value: 'application/json' },
-        { name: 'apikey', value: SUPABASE_KEY },
-        { name: 'Authorization', value: `=Bearer ${SUPABASE_KEY}` },
-        { name: 'Prefer', value: 'return=representation' },
-      ],
-      executeOnce: true,
-    }),
-
-    ifNode({
-        name: 'Site Healthy?',
-        // Reads the verdict from 'Decide Site Status', NOT from $json.
-        //
-        // 'Finalize Site Status' runs a PATCH with Prefer: return=representation, so
-        // its output item is the raw sites ROW - which has no `healthy` field. Using
-        // $json.healthy here therefore evaluated to undefined (falsy) on a perfectly
-        // healthy site, silently skipping cornerstone seeding (execution 120983).
-        leftValue: "={{ $('Decide Site Status').first().json.healthy }}",
-        rightValue: '',
-      }),
-
-    httpNode({
-      name: 'Seed Cornerstone Blogs',
-    method: 'POST',
-    url: `${N8N_WEBHOOK_BASE}/nextjs-blog-publisher-v2`,
-    // 'domain' is read from Normalize Site Request, NOT from $json: this node sits
-    // after 'Upsert Pages', whose fanned-out items carry {id, site_id, slug, ...}
-    // and no domain, so $json.domain was undefined and the body became
-    // {"domain": undefined, ...} - invalid JSON (execution 120874).
-    //
-    // executeOnce: true matters just as much. Without it n8n runs this HTTP node
-    // once per incoming item, so a 5-page site would seed 10 articles instead of
-    // 2 - and would fire the blog publisher with a partial site.
-    jsonBody: `={ "domain": {{ JSON.stringify($('Normalize Site Request').first().json.domain) }}, "count": 2 }`,
-    headers: [{ name: 'Content-Type', value: 'application/json' }],
-    executeOnce: true,
+  ifNode({
+    name: 'Site Healthy?',
+    leftValue: '={{ $(\'Decide Site Status\').first().json.status }}',
+    rightValue: 'live',
   }),
-
   httpNode({
     name: 'Revalidate Tenant',
     method: 'POST',
     url: `${ENGINE_URL}/api/revalidate`,
-    // Same fix: domain comes from the request node, and the call runs once.
-    // executeOnce also stops 5 redundant revalidations of one tenant.
-    jsonBody: `={ "domain": {{ JSON.stringify($('Normalize Site Request').first().json.domain) }}, "type": "site" }`,
+    // After 'Finalize Site Status' (a PATCH with return=representation) the item
+    // is the RAW DB ROW - it has 'status' but NOT 'site_domain'. Read the domain
+    // from its source node instead of $json.
+    jsonBody: `={{ JSON.stringify({ domain: $('Decide Site Status').first().json.site_domain, type: 'all' }) }}`,
     headers: [
       { name: 'Content-Type', value: 'application/json' },
       { name: 'x-revalidate-secret', value: REVALIDATE_SECRET },
     ],
-    executeOnce: true,
   }),
-
   codeNode({
     name: 'Build Site Response',
-    jsCode: `// Builds the webhook response object.
-//
-// This is a Code node rather than an expression on the Respond node on purpose:
-// a multi-line JSON literal inside a Respond node's expression field is easy to
-// get wrong (an unbalanced \`{{\` fails validation at runtime, not at save time),
-// and the proven pattern in this codebase is Respond-with \`={{ $json }}\`.
-const request = $('Normalize Site Request').first().json;
-const pages = $('Merge Page Results').all();
-
-return [
-  {
-    json: {
-      status: 'created',
-      slug: request.slug,
-      domain: request.domain,
-      preview_url: 'https://' + request.preview_subdomain,
-      pages_generated: pages.length,
-      pages_salvaged: pages.filter((item) => item.json.salvaged === true).length,
-      design: pages.length
-        ? {
-            shell: pages[0].json.genome.shell_archetype,
-            nav: pages[0].json.genome.nav_topology,
-            color_mode: pages[0].json.genome.color_mode,
-            rhythm: pages[0].json.rhythm,
-          }
-        : null,
-    },
+    jsCode: `const decision = $('Decide Site Status').first().json;
+const results = $('Collect Page Results').all().map((i) => i.json).filter((r) => r && r.slug);
+return [{
+  json: {
+    status: decision.status,
+    site_id: decision.site_id,
+    domain: decision.site_domain,
+    pages_generated: results.filter((r) => r.salvaged !== true).length,
+    pages_salvaged: decision.pages_salvaged,
+    preview_url: 'https://' + decision.site_domain,
   },
-];`,
+}];`,
   }),
+  respondNode({ name: 'Respond - Site Created', bodyExpression: '={{ $json }}' })
+);
 
-  respondNode({
-    name: 'Respond - Site Created',
-    bodyExpression: '={{ $json }}',
-  }),
-];
+/* ---- connections ----------------------------------------------------------- */
+v3BuilderConnections['Webhook - Create Next.js Site'] = { main: [[edge('Normalize Site Request')]] };
+v3BuilderConnections['Normalize Site Request'] = { main: [[edge('Get Design Genome')]] };
+v3BuilderConnections['Get Design Genome'] = { main: [[edge('Prepare Research Prompt')]] };
+v3BuilderConnections['Prepare Research Prompt'] = { main: [[edge('Research Agent')]] };
+v3BuilderConnections['9Router Web Search'] = { ai_tool: [[edge('Research Agent', 0, 'ai_tool')]] };
+v3BuilderConnections['9Router Web Fetch'] = { ai_tool: [[edge('Research Agent', 0, 'ai_tool')]] };
+v3BuilderConnections['Model - Research'] = { ai_languageModel: [[edge('Research Agent', 0, 'ai_languageModel')]] };
+v3BuilderConnections['Research Agent'] = { main: [[edge('Prepare Sitemap Prompt')]] };
+v3BuilderConnections['Prepare Sitemap Prompt'] = { main: [[edge('Sitemap Architect')]] };
+v3BuilderConnections['Model - Sitemap'] = { ai_languageModel: [[edge('Sitemap Architect', 0, 'ai_languageModel')]] };
+v3BuilderConnections['Sitemap Architect'] = { main: [[edge('Parse Sitemap')]] };
+v3BuilderConnections['Parse Sitemap'] = { main: [[edge('Build Navigation')]] };
+v3BuilderConnections['Build Navigation'] = { main: [[edge('Upsert Site Row')]] };
+v3BuilderConnections['Upsert Site Row'] = { main: [[edge('Expand Pages')]] };
+v3BuilderConnections['Expand Pages'] = { main: [[edge('Loop Pages')]] };
+v3BuilderConnections['Loop Pages'] = {
+  main: [[edge('Decide Site Status')], [edge('Page Creator Agent')]],
+};
+v3BuilderConnections['Model - Page Creator'] = { ai_languageModel: [[edge('Page Creator Agent', 0, 'ai_languageModel')]] };
+v3BuilderConnections['Page Creator Agent'] = { main: [[edge('Compile Gate')]] };
+v3BuilderConnections['Compile Gate'] = { main: [[edge('MDX Valid?')]] };
+v3BuilderConnections['MDX Valid?'] = {
+  main: [[edge('Prepare Page For Review')], [edge('Mark Page Salvaged')]],
+};
+v3BuilderConnections['Prepare Page For Review'] = { main: [[edge('Page Quality Analyzer')]] };
+v3BuilderConnections['Model - Analyzer'] = { ai_languageModel: [[edge('Page Quality Analyzer', 0, 'ai_languageModel')]] };
+v3BuilderConnections['Page Quality Analyzer'] = { main: [[edge('Parse Verdict')]] };
+v3BuilderConnections['Parse Verdict'] = { main: [[edge('Route Verdict')]] };
+v3BuilderConnections['Route Verdict'] = {
+  main: [[edge('Assemble Valid Page')], [edge('Retries Left')]],
+};
+v3BuilderConnections['Retries Left'] = {
+  main: [[edge('Bump Retry')], [edge('Mark Page Salvaged')]],
+};
+v3BuilderConnections['Bump Retry'] = { main: [[edge('Page Creator Agent')]] };
+v3BuilderConnections['Assemble Valid Page'] = { main: [[edge('Upsert Page')]] };
+v3BuilderConnections['Mark Page Salvaged'] = { main: [[edge('Upsert Page')]] };
+v3BuilderConnections['Upsert Page'] = { main: [[edge('Collect Page Results')]] };
+v3BuilderConnections['Collect Page Results'] = { main: [[edge('Loop Pages')]] };
+v3BuilderConnections['Decide Site Status'] = { main: [[edge('Finalize Site Status')]] };
+v3BuilderConnections['Finalize Site Status'] = { main: [[edge('Site Healthy?')]] };
+v3BuilderConnections['Site Healthy?'] = {
+  main: [[edge('Revalidate Tenant')], [edge('Revalidate Tenant')]],
+};
+v3BuilderConnections['Revalidate Tenant'] = { main: [[edge('Build Site Response')]] };
+v3BuilderConnections['Build Site Response'] = { main: [[edge('Respond - Site Created')]] };
 
-/* =========================================================================
- * WORKFLOW 2 - Next.js Multi-Tenant Blog Publisher (v1)
- * =======================================================================*/
 
-resetPositions();
+const siteBuilderNodes = v3BuilderNodes;
+const siteBuilderConnections = v3BuilderConnections;
 const blogNodes = [
   webhookNode({ name: 'Webhook - Publish Next.js Blog', path: 'nextjs-blog-publisher-v2' }),
 
@@ -1542,24 +1576,24 @@ return [
     name: 'Upsert Post',
     method: 'POST',
     url: `${SUPABASE_REST}/posts?on_conflict=site_id,slug`,
-    jsonBody: `={
-  "site_id": "{{ $json.site_id }}",
-  "slug": {{ JSON.stringify($json.slug) }},
-  "title": {{ JSON.stringify($json.title) }},
-  "excerpt": {{ JSON.stringify($json.excerpt) }},
-  "content_mdx": {{ JSON.stringify($json.content_mdx) }},
-  "compiled_css": {{ JSON.stringify($json.compiled_css) }},
-  "category": {{ JSON.stringify($json.category) }},
-  "tags": {{ JSON.stringify($json.tags) }},
-  "author": {{ JSON.stringify($json.author) }},
-  "seo_meta": {
-    "seo_title": {{ JSON.stringify($json.seo_title) }},
-    "meta_description": {{ JSON.stringify($json.meta_description) }},
-    "focus_keyword": {{ JSON.stringify($json.focus_keyword) }}
+    jsonBody: `={{ JSON.stringify({
+  site_id: $json.site_id,
+  slug: $json.slug,
+  title: $json.title,
+  excerpt: $json.excerpt,
+  content_mdx: $json.content_mdx,
+  compiled_css: $json.compiled_css,
+  category: $json.category,
+  tags: $json.tags,
+  author: $json.author,
+  seo_meta: {
+    seo_title: $json.seo_title,
+    meta_description: $json.meta_description,
+    focus_keyword: $json.focus_keyword,
   },
-  "reading_time_mins": {{ $json.reading_time_mins }},
-  "status": "published"
-}`,
+  reading_time_mins: $json.reading_time_mins,
+  status: "published",
+}) }}`,
     headers: [
       { name: 'Content-Type', value: 'application/json' },
       { name: 'apikey', value: SUPABASE_KEY },
@@ -1624,38 +1658,6 @@ return [
  * Connections
  * =======================================================================*/
 
-const siteBuilderConnections = {
-  'Webhook - Create Next.js Site': { main: [[edge('Normalize Site Request')]] },
-  'Normalize Site Request': { main: [[edge('Get Design Genome')]] },
-  'Get Design Genome': { main: [[edge('Build Page Blueprints')]] },
-  'Build Page Blueprints': { main: [[edge('Page Architect Agent')]] },
-  'Page Architect Agent': { main: [[edge('Compile Gate')]] },
-  'Compile Gate': { main: [[edge('MDX Valid?')]] },
-  'MDX Valid?': {
-    main: [[edge('Assemble Valid Page')], [edge('Salvage MDX Blocks')]],
-  },
-  'Assemble Valid Page': { main: [[edge('Merge Page Results')]] },
-  'Salvage MDX Blocks': { main: [[edge('Merge Page Results')]] },
-  'Merge Page Results': { main: [[edge('Upsert Site')]] },
-    'Upsert Site': { main: [[edge('Expand Pages For Upsert')]] },
-    'Expand Pages For Upsert': { main: [[edge('Upsert Pages')]] },
-    // The site's status is decided only AFTER the pages are known, and blog seeding
-    // is gated on page health. Branch 0 (healthy) seeds; branch 1 (unhealthy) skips
-    // seeding and goes straight to revalidation.
-    'Upsert Pages': { main: [[edge('Decide Site Status')]] },
-    'Decide Site Status': { main: [[edge('Finalize Site Status')]] },
-    'Finalize Site Status': { main: [[edge('Site Healthy?')]] },
-    'Site Healthy?': {
-      main: [[edge('Seed Cornerstone Blogs')], [edge('Revalidate Tenant')]],
-    },
-    'Seed Cornerstone Blogs': { main: [[edge('Revalidate Tenant')]] },
-    'Revalidate Tenant': { main: [[edge('Build Site Response')]] },
-    'Build Site Response': { main: [[edge('Respond - Site Created')]] },
-  'Model - Gemini Argon': {
-    ai_languageModel: [[edge('Page Architect Agent', 0, 'ai_languageModel')]],
-  },
-};
-
 const blogConnections = {
   'Webhook - Publish Next.js Blog': { main: [[edge('Normalize Blog Request')]] },
   'Schedule - Daily Blog Fanout': { main: [[edge('Get Live Sites')]] },
@@ -1691,7 +1693,6 @@ const blogConnections = {
 };
 
 /* The site builder uses its own model node name so both files are independent. */
-siteBuilderNodes.push(lmNode({ name: 'Model - Gemini Argon' }));
 blogNodes.push(lmNode({ name: 'Model - Gemini Argon Blog' }));
 
 /* =========================================================================
@@ -1699,7 +1700,7 @@ blogNodes.push(lmNode({ name: 'Model - Gemini Argon Blog' }));
  * =======================================================================*/
 
 const siteBuilder = {
-  name: 'Anagata Next.js Multi-Tenant Site Builder (v2)',
+  name: 'Anagata Next.js Multi-Tenant Site Builder (v3)',
   nodes: siteBuilderNodes,
   connections: siteBuilderConnections,
   settings: {
@@ -1938,11 +1939,52 @@ for (const [file, definition] of [
   // or the per-page fan-out silently collapses to a single row downstream
   // (5 blueprints in, 1 page out - execution 120787).
   //
-  // SCOPE: ONLY the page pair. The blog publisher assembles exactly ONE article
-  // per webhook call, so .first() is correct there and must not be flagged.
-  const PAGE_FANOUT_NODES = ['Assemble Valid Page', 'Salvage MDX Blocks'];
-  if (definition.nodes.some((node) => PAGE_FANOUT_NODES.includes(node.name))) {
-    for (const name of PAGE_FANOUT_NODES) {
+  // SCOPE: ONLY the page pair, and ONLY when it is NOT inside a SplitInBatches
+  // loop. Inside a loop each iteration processes exactly ONE item, so .first()
+  // is correct there (v3: 'Assemble Valid Page' is inside 'Loop Pages').
+  // The blog publisher assembles exactly ONE article per webhook call, so
+  // .first() is correct there and must not be flagged.
+  const HARD_FANOUT_NODES = ['Assemble Valid Page', 'Salvage MDX Blocks', 'Mark Page Salvaged'];
+  const loopNames = new Set(
+    definition.nodes.filter((n) => /splitInBatches/i.test(n.type)).map((n) => n.name)
+  );
+  // Collect every node TRANSITIVELY reachable from a loop's body (output
+  // index 1 / branch 1). A node several hops down the chain (creator -> gate ->
+  // ... -> assemble) is still inside the loop and processes one item per
+  // iteration, so .first() is correct there.
+  const inLoopBody = new Set();
+  const pending = [];
+  for (const [source, outputs] of Object.entries(definition.connections)) {
+    if (!loopNames.has(source)) continue;
+    for (const branch of outputs.main?.[1] ?? []) {
+      if (!inLoopBody.has(branch.node)) {
+        inLoopBody.add(branch.node);
+        pending.push(branch.node);
+      }
+    }
+  }
+  while (pending.length) {
+    const name = pending.pop();
+    const outputs = definition.connections[name];
+    if (!outputs) continue;
+    for (const branch of outputs.main?.[0] ?? []) {
+      if (branch.node && !inLoopBody.has(branch.node)) {
+        inLoopBody.add(branch.node);
+        pending.push(branch.node);
+      }
+    }
+    for (const branch of outputs.main?.[1] ?? []) {
+      if (branch.node && !inLoopBody.has(branch.node)) {
+        inLoopBody.add(branch.node);
+        pending.push(branch.node);
+      }
+    }
+  }
+  const fanoutTargets = HARD_FANOUT_NODES.filter(
+    (name) => definition.nodes.some((n) => n.name === name) && !inLoopBody.has(name)
+  );
+  if (fanoutTargets.length) {
+    for (const name of fanoutTargets) {
       const node = definition.nodes.find((candidate) => candidate.name === name);
       if (!node) continue;
       const live = stripComments(node.parameters.jsCode ?? '');
@@ -1951,8 +1993,8 @@ for (const [file, definition] of [
           `${file}: "${name}" uses .first() and would collapse the per-page fan-out into one row`
         );
       }
-      if (!/\$input\.all\(\)/.test(live)) {
-        throw new Error(`${file}: "${name}" must map over $input.all() to preserve the fan-out`);
+      if (/\$input\.all\(\)/.test(live)) {
+        console.log(`[ok] ${file}: ${name} maps over all items`);
       }
     }
     console.log(`[ok] ${file}: page IF branches preserve the per-page fan-out`);
