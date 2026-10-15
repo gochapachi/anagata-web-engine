@@ -47,8 +47,12 @@ http:
   services:
     anagata-web-engine:
       loadBalancer:
-        # Stable network alias set on the app in Coolify (survives container churn;
-        # see "WHY A NETWORK ALIAS" above). NOT the raw container name.
+        # Resolves via the app's Coolify "custom network alias" (anagata-web-engine),
+        # set so it survives container churn. NOT the raw container name, which
+        # Coolify regenerates every deploy - the deploy log shows
+        # `lobduk7jaqkpnygj50f1snzo-171127550336` replaced by
+        # `lobduk7jaqkpnygj50f1snzo-041527063506`, so a hardcoded container name
+        # breaks on the next rolling update.
         servers:
           - url: 'http://anagata-web-engine:3000'
         passHostHeader: true

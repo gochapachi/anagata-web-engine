@@ -66,13 +66,50 @@ export function eq(value: string): string {
  * Resolves a tenant from a Host header. Accepts either the production `domain`
  * or the `preview_subdomain`, so a site is reachable the instant it is created.
  */
+/**
+ * Resolves a tenant from a Host header. Accepts:
+ *   - the production `domain` (thecrowndentalclinic.com)
+ *   - the `preview_subdomain` exactly as stored
+ *   - `<slug>.anagataitsolutions.in`, the CURRENT preview shape
+ *
+ * WHY THE SLUG FALLBACK MATTERS: the preview host is derived from
+ * SITES_BASE_DOMAIN, and existing rows were written when that was
+ * `sites.anagataitsolutions.in` (a TWO-label host). Changing the env var moved
+ * previews to `<slug>.anagataitsolutions.in`, but no migration touched the stored
+ * `preview_subdomain` - so every existing tenant 404'd on its own new preview
+ * URL while the engine was perfectly healthy. Matching the slug recovers those
+ * rows without a data migration, and keeps working if the preview domain changes
+ * again later.
+ */
 export async function fetchSite(host: string): Promise<SiteRow | null> {
   const encoded = encodeURIComponent(host);
   const rows = await postgrest<SiteRow[]>(
     'sites',
     `select=*&or=(domain.eq.${encoded},preview_subdomain.eq.${encoded})&status=neq.suspended&limit=1`
   );
-  return rows[0] ?? null;
+  if (rows[0]) return rows[0];
+
+  // Fallback: a preview host whose slug is the first label.
+  const base = previewBaseDomain();
+  if (!host.endsWith(`.${base}`)) return null;
+
+  const slug = host.slice(0, -(base.length + 1));
+  // A preview slug never contains a dot; anything deeper is not ours.
+  if (!slug || slug.includes('.')) return null;
+
+  const bySlug = await postgrest<SiteRow[]>(
+    'sites',
+    `select=*&slug.eq.${encodeURIComponent(slug)}&status=neq.suspended&limit=1`
+  );
+  return bySlug[0] ?? null;
+}
+
+/** The apex previews live under, read from config. */
+function previewBaseDomain(): string {
+  return (process.env.SITES_BASE_DOMAIN ?? 'anagataitsolutions.in')
+    .trim()
+    .replace(/^https?:\/\//i, '')
+    .replace(/\/+$/, '');
 }
 
 /** Cached tenant lookup, tagged per host. */
