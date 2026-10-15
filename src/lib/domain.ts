@@ -41,9 +41,24 @@ export function isEngineHost(host: string): boolean {
   return false;
 }
 
-/** `preview_subdomain` value for a tenant slug, used for instant preview URLs. */
+/**
+ * `preview_subdomain` value for a tenant slug, used for instant preview URLs.
+ *
+ * Read from SITES_BASE_DOMAIN rather than hardcoded: the preview host must be
+ * ONE label below the apex. The old value `sites.anagataitsolutions.in` produced
+ * `<slug>.sites.anagataitsolutions.in` - TWO labels down - which no wildcard
+ * certificate covers (the Cloudflare wildcard is `*.anagataitsolutions.in`, one
+ * level only). Every preview URL failed with ERR_SSL_VERSION_OR_CIPHER_MISMATCH.
+ *
+ * Set SITES_BASE_DOMAIN=anagataitsolutions.in so previews land at
+ * `<slug>.anagataitsolutions.in`, inside the existing wildcard.
+ */
 export function previewSubdomainFor(slug: string): string {
-  return `${slug}.sites.anagataitsolutions.in`;
+  const base = (process.env.SITES_BASE_DOMAIN ?? 'anagataitsolutions.in')
+    .trim()
+    .replace(/^https?:\/\//i, '')
+    .replace(/\/+$/, '');
+  return `${slug}.${base}`;
 }
 
 /**

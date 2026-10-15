@@ -1,0 +1,54 @@
+# Anagata tenant preview hosts.
+#
+# WHY THIS FILE EXISTS
+# Coolify's application API rejects a wildcard fqdn ("Invalid URL:
+# https://*.anagataitsolutions.in"), so a wildcard tenant host cannot be attached to
+# the app through the normal domain field. A dynamic Traefik configuration is the
+# supported way to route a regexp of subdomains to one service.
+#
+# Install in Coolify: Servers -> <your server> -> Proxy -> Dynamic Configurations,
+# create this file as `anagata-tenants.yaml`, save.
+#
+# TTL: Traefik's file provider hot-reloads, so no restart is normally required.
+#
+# WHAT IT DOES
+# Any single-label host under the apex - <slug>.anagataitsolutions.in - is routed to
+# the engine container, which resolves the tenant from the Host header.
+#
+# TLS: Cloudflare fronts this zone and already presents the wildcard certificate
+# (verified: `openssl s_client -connect <x>.anagataitsolutions.in -servername <same>`
+# returns CN=anagataitsolutions.in), so Traefik terminates Cloudflare's TLS and no
+# per-host ACME is needed here. Deep hosts (<a>.<b>.anagataitsolutions.in) are NOT
+# covered by a *.anagataitsolutions.in wildcard - that is why previews moved to one
+# label.
+#
+# priority 1 is deliberate: it is LOWER than Coolify's per-app routers (default
+# 2), so an explicit fqdn such as sites.anagataitsolutions.in still wins and this
+# router only catches hosts no app claims.
+#
+# WHY A NETWORK ALIAS, NOT A CONTAINER NAME
+# The engine's container name changes on EVERY deploy (verified in the deploy log:
+# `lobduk7jaqkpnygj50f1snzo-171127550336` was replaced by
+# `lobduk7jaqkpnygj50f1snzo-041527063506`). Coolify's own API notes "App containers
+# have no stable uuid hostname." Hardcoding either name breaks on the next deploy.
+# `anagata-web-engine` is set as a Coolify "custom network alias" on the app, which
+# stays constant across rolling updates and resolves on the `coolify` docker network.
+
+http:
+  routers:
+    anagata-tenants:
+      rule: 'HostRegexp(`^[a-z0-9-]+\.anagataitsolutions\.in$`)'
+      entryPoints:
+        - https
+      service: anagata-web-engine
+      priority: 1
+      tls: {}
+
+  services:
+    anagata-web-engine:
+      loadBalancer:
+        # Stable network alias set on the app in Coolify (survives container churn;
+        # see "WHY A NETWORK ALIAS" above). NOT the raw container name.
+        servers:
+          - url: 'http://anagata-web-engine:3000'
+        passHostHeader: true

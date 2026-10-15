@@ -95,7 +95,27 @@ describe('normalizeSlug / slugLeaf / previewSubdomainFor', () => {
     expect(slugLeaf('services/microscope-rct')).toBe('microscope-rct');
   });
 
-  it('builds the preview subdomain', () => {
-    expect(previewSubdomainFor('crown-dental')).toBe('crown-dental.sites.anagataitsolutions.in');
+  it('builds a single-label preview subdomain inside the wildcard cert', () => {
+    // The preview host MUST be one label below the apex. The previous value
+    // (<slug>.sites.anagataitsolutions.in) was two labels down, which a
+    // *.anagataitsolutions.in wildcard does not cover - every preview URL failed
+    // with ERR_SSL_VERSION_OR_CIPHER_MISMATCH.
+    process.env.SITES_BASE_DOMAIN = 'anagataitsolutions.in';
+    expect(previewSubdomainFor('crown-dental')).toBe('crown-dental.anagataitsolutions.in');
+  });
+
+  it('reads the base from SITES_BASE_DOMAIN and tolerates sloppy values', () => {
+    // Guards the hardcoded-domain bug: this function used to return
+    // '<slug>.sites.anagataitsolutions.in' regardless of config, so changing the
+    // env var alone would not have moved previews onto the wildcard.
+    process.env.SITES_BASE_DOMAIN = 'anagataitsolutions.in';
+    expect(previewSubdomainFor('a-b')).toBe('a-b.anagataitsolutions.in');
+
+    process.env.SITES_BASE_DOMAIN = 'https://anagataitsolutions.in/';
+    expect(previewSubdomainFor('a-b')).toBe('a-b.anagataitsolutions.in');
+
+    // Unset falls back to the apex, never the old two-level value.
+    delete process.env.SITES_BASE_DOMAIN;
+    expect(previewSubdomainFor('a-b')).toBe('a-b.anagataitsolutions.in');
   });
 });

@@ -52,7 +52,7 @@ function loadRuntimeConfig() {
   const defaults = {
     ENGINE_URL: 'https://sites.anagataitsolutions.in',
     SUPABASE_URL: 'https://supabase.anagataitsolutions.in',
-    SITES_BASE_DOMAIN: 'sites.anagataitsolutions.in',
+    SITES_BASE_DOMAIN: 'anagataitsolutions.in',
     N8N_WEBHOOK_BASE: 'https://n8n.anagataitsolutions.in/webhook',
     ENGINE_COMPILE_SECRET: '',
     SUPABASE_SERVICE_ROLE_KEY: '',
