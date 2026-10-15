@@ -584,7 +584,7 @@ const NICHE_PAGES = {
     { slug: 'fees', title: 'Fee Schedule', minSections: 3,
       intent: 'Transparent fee structure. Give indicative bands per service with what each includes and excludes, and state clearly that a fixed quote follows a free initial review. Use a <CostComparisonTable/> for the bands.' },
     { slug: 'deadlines', title: 'Key Tax Deadlines', minSections: 3,
-      intent: 'Calendar of the filing and payment deadlines that apply to the firm\'s clients, in chronological order, with the consequence of missing each one. Use generic recurring dates only, never a specific unverified deadline for a named year.' },
+      intent: 'Calendar of the filing and payment deadlines that apply to your clients, in chronological order, with the consequence of missing each one. Use generic recurring dates only, never a specific unverified deadline for a named year.' },
     { slug: 'process', title: 'How We Work', minSections: 4,
       intent: 'The engagement process from first call to filing: onboarding, document collection, review, submission, and ongoing support. Explain what records the client must keep.' },
     { slug: 'sectors', title: 'Sectors We Serve', minSections: 3,
@@ -2066,4 +2066,30 @@ for (const [file, definition] of [
         if (agentNodes.length) {
           console.log(`[ok] ${file}: ${agentNodes.length} agent(s) have a typed ai_languageModel edge`);
         }
+
+        // Every Code node's jsCode must PARSE as JavaScript. Nothing else in this
+        // file checks that, and the gap cost a live run: an apostrophe inside a
+        // single-quoted string ('the firm\'s clients') survived the generator's
+        // escaping, landed in the emitted workflow, and threw
+        // "Unexpected identifier 's'" at runtime - after the webhook had already
+        // returned 500 to the caller. new Function() compiles without executing,
+        // so this is a static check.
+        for (const node of definition.nodes) {
+          const code = node.parameters?.jsCode;
+          if (typeof code !== 'string') continue;
+          // Code nodes run in 'runOnceForAllItems' mode by default, which wraps
+          // the body. Using Function() (not new Function()) is the faithful test:
+          // top-level await is prohibited in n8n Code nodes anyway.
+          try {
+            // eslint-disable-next-line no-new-func
+            new Function(code);
+          } catch (err) {
+            throw new Error(
+              `${file}: Code node "${node.name}" jsCode does not parse as JavaScript: ` +
+                `${err.message}. A quote or backslash in a string literal is the usual ` +
+                `cause - check apostrophes inside single-quoted strings.`
+            );
+          }
+        }
+        console.log(`[ok] ${file}: every Code node's jsCode parses as JavaScript`);
       }
