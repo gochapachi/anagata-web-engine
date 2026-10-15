@@ -1,0 +1,984 @@
+{
+  "source": "https://github.com/bergside/awesome-design-skills (MIT)",
+  "extracted_by": "n8n/scripts/vendor-design-skills.mjs",
+  "note": "Colour values and font names are intentionally omitted - the design genome owns those axes. See the extractor header.",
+  "count": 67,
+  "skills": [
+    {
+      "slug": "agentic",
+      "name": "agentic",
+      "description": "Conversational AI-first interface with minimal controls, clear outcomes, and delegated task flows for agentic workflows.",
+      "visual_style": [
+        "modern",
+        "bold"
+      ],
+      "typography_scale": "14/16/18/24/32/40",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "surface/subtle layers",
+      "spacing_scale": "8pt baseline grid",
+      "substance": "## Brand\nThe agentic design style emphasizes conversational interactions, clear outcomes, and minimal controls, allowing users to delegate tasks to AI instead of manually managing complex workflows.\n\n## Style Foundations\n- Visual style: modern, bold\n- Typography scale: 14/16/18/24/32/40 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: surface/subtle layers \n- Spacing scale: 8pt baseline grid\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states, semantic HTML before ARIA, screen-reader tested labels, reduced-motion support, 44px+ touch targets, high-contrast support\n\n## Writing Tone\nconcise, confident, helpful, clear, friendly, professional, action-oriented, low-jargon\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n- design for empty/loading/error states\n- ensure responsive behavior by default\n- document accessibility rationale\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid decorative motion without purpose\n- avoid ambiguous labels\n- avoid mixing multiple visual metaphors\n- avoid inaccessible hit areas"
+    },
+    {
+      "slug": "ant",
+      "name": "ant",
+      "description": "Structured, enterprise-focused design system emphasizing clarity, consistency, and efficiency for data-dense web applications.",
+      "visual_style": [
+        "data-dense",
+        "enterprise"
+      ],
+      "typography_scale": "12/14/16/20/24/32",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Brand\nAnt Design follows a structured, enterprise-focused design system that emphasizes clarity, consistency, and efficiency in complex web applications.\n\n## Style Foundations\n- Visual style: data-dense, enterprise\n- Typography scale: 12/14/16/20/24/32 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful, clear, friendly, professional, action-oriented, low-jargon\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n- design for empty/loading/error states\n- ensure responsive behavior by default\n- document accessibility rationale\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid decorative motion without purpose\n- avoid ambiguous labels\n- avoid mixing multiple visual metaphors\n- avoid inaccessible hit areas"
+    },
+    {
+      "slug": "artistic",
+      "name": "artistic",
+      "description": "High-contrast, expressive style with creative typography and bold color choices for visually striking interfaces.",
+      "visual_style": [
+        "high-contrast",
+        "artistic"
+      ],
+      "typography_scale": "12/14/16/18/24/30/36",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Style Foundations\n- Visual style: high-contrast, artistic\n- Typography scale: 12/14/16/18/24/30/36 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states, semantic HTML before ARIA, screen-reader tested labels, reduced-motion support, 44px+ touch targets, high-contrast support\n\n## Writing Tone\nconcise, confident, professional, action-oriented\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n- design for empty/loading/error states\n- ensure responsive behavior by default\n- document accessibility rationale\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid decorative motion without purpose\n- avoid ambiguous labels\n- avoid mixing multiple visual metaphors\n- avoid inaccessible hit areas"
+    },
+    {
+      "slug": "basic",
+      "name": "basic",
+      "description": "Print-inspired visual language for books, magazines, and reports with editorial grids and expressive typography.",
+      "visual_style": [
+        "modern",
+        "editorial"
+      ],
+      "typography_scale": "desktop-first expressive scale",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Brand\nBasic design style defines the visual language of books, magazines, and reports, ranging from clean minimalism to ornate, expressive, or retro aesthetics\n\n## Style Foundations\n- Visual style: modern, editorial\n- Typography scale: desktop-first expressive scale | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states, semantic HTML before ARIA, screen-reader tested labels, reduced-motion support, 44px+ touch targets, high-contrast support\n\n## Writing Tone\nconcise, confident, professional\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n- design for empty/loading/error states\n- ensure responsive behavior by default\n- document accessibility rationale\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid decorative motion without purpose\n- avoid ambiguous labels\n- avoid mixing multiple visual metaphors\n- avoid inaccessible hit areas"
+    },
+    {
+      "slug": "bento",
+      "name": "bento",
+      "description": "Modular grid layout with card-like blocks, clear hierarchy, soft spacing, and subtle visual contrast for organized, scannable interfaces.",
+      "visual_style": [
+        "modern",
+        "clean"
+      ],
+      "typography_scale": "12/14/16/20/24/32",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Brand\nThe bento box style is an innovative design approach that uses a grid layout to present content in visually appealing blocks of varying sizes.\n\n## Style Foundations\n- Visual style: modern, clean\n- Typography scale: 12/14/16/20/24/32 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "bold",
+      "name": "bold",
+      "description": "Strong visual presence with heavyweight typography, high-contrast colors, and commanding layouts.",
+      "visual_style": [
+        "bold"
+      ],
+      "typography_scale": "desktop-first expressive scale",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, secondary",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Style Foundations\n- Visual style: bold\n- Typography scale: desktop-first expressive scale | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, secondary \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states, screen-reader tested labels, reduced-motion support, 44px+ touch targets, high-contrast support\n\n## Writing Tone\nfriendly, professional\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "brutalism",
+      "name": "brutalism",
+      "description": "Raw, anti-design aesthetic inspired by concrete architecture with unadorned elements, jarring layouts, and functional minimalism.",
+      "visual_style": [
+        "bold"
+      ],
+      "typography_scale": "desktop-first expressive scale",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, secondary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Brand\na bold, \"anti-design\" style inspired by 1950s raw concrete architecture, prioritizing functional, unadorned, and often jarring aesthetics over polished, conventional design.\n\n## Style Foundations\n- Visual style: bold\n- Typography scale: desktop-first expressive scale | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, secondary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "cafe",
+      "name": "cafe",
+      "description": "Cozy cafe-inspired interface with warm tones, soft typography, and clean layouts for a relaxed browsing experience.",
+      "visual_style": [
+        "minimal",
+        "clean"
+      ],
+      "typography_scale": "desktop-first expressive scale",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, neutral, success, warning, danger",
+      "spacing_scale": "2/4/8/12/16/24/32/48",
+      "substance": "## Brand\nA cozy café-inspired interface that blends warm tones, soft typography, and clean layouts to create a relaxed browsing experience\n\n## Style Foundations\n- Visual style: minimal, clean\n- Typography scale: desktop-first expressive scale | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, neutral, success, warning, danger \n- Spacing scale: 2/4/8/12/16/24/32/48\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "claude",
+      "name": "\"claude\"",
+      "description": "\"A research-journal aesthetic printed on warm stone — authoritative, editorial, almost achromatic. Pages live on warm ivory parchment (never pure white), with near-black slate as the dominant ink.\"",
+      "visual_style": [
+        "modern",
+        "minimal",
+        "clean"
+      ],
+      "typography_scale": "12/14/16/20/24/32",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, secondary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Brand\nA research-journal aesthetic printed on warm stone — authoritative, editorial, almost achromatic. Pages live on warm ivory parchment (never pure white), with near-black slate as the dominant ink. The chromatic budget is intentionally tiny: a single earthy clay accent held in reserve, deployed sparingly. Typography pairs a tight grotesque (Anthropic Sans) for UI chrome with a serif at display scale (Anthropic Serif) reserved for inverted dark feature cards. Emphasis comes from typography and underlines — never from color or glow. Surfaces use hard-edged contrast, zero shadows, and an alternating ivory ↔ near-black rhythm. Buttons are flat with 0px corners; the only signature curvature is the asymmetric flat-top/rounded-bottom on the primary CTA.\n\n## Style Foundations\n- Visual style: modern, minimal, clean\n- Typography scale: 12/14/16/20/24/32 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, secondary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "claymorphism",
+      "name": "claymorphism",
+      "description": "Soft, rounded 3D-like shapes mimicking malleable clay with playful, puffy elements and colorful surfaces.",
+      "visual_style": [
+        "modern",
+        "high-contrast",
+        "playful"
+      ],
+      "typography_scale": "desktop-first expressive scale",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Brand\na modern UI trend characterized by soft, rounded, 3D-like, \"puffy\" shapes that mimic malleable, colorful clay.\n\n## Style Foundations\n- Visual style: modern, high-contrast, playful\n- Typography scale: desktop-first expressive scale | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels\n- avoid mixing multiple visual metaphors"
+    },
+    {
+      "slug": "clean",
+      "name": "clean",
+      "description": "Simplicity-focused design with ample whitespace, legible typography, and a limited color palette to reduce visual clutter.",
+      "visual_style": [
+        "minimal",
+        "clean"
+      ],
+      "typography_scale": "12/14/16/20/24/32",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, neutral, success, warning, danger",
+      "spacing_scale": "8pt baseline grid",
+      "substance": "## Brand\nClean design style focuses on simplicity, minimalism, and high usability, using ample whitespace, legible typography, and limited color palettes to reduce visual clutter\n\n## Style Foundations\n- Visual style: minimal, clean\n- Typography scale: 12/14/16/20/24/32 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, neutral, success, warning, danger \n- Spacing scale: 8pt baseline grid\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states, semantic HTML before ARIA, screen-reader tested labels, reduced-motion support, 44px+ touch targets\n\n## Writing Tone\nclear, friendly\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- keep interaction states explicit\n- design for empty/loading/error states\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid decorative motion without purpose\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "codex",
+      "name": "\"codex\"",
+      "description": "\"A radically minimal, blank-canvas interface built as a pure edge-to-edge surface, with almost no color and typography carrying the visual weight. Black serves as the only filled color, the only divider, and the sole surface tone cards.\"",
+      "visual_style": [
+        "modern",
+        "minimal",
+        "clean"
+      ],
+      "typography_scale": "12/14/16/20/24/32",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, secondary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Brand\nA radically minimal, blank-canvas interface built as a pure edge-to-edge surface, with almost no color and typography carrying the visual weight. Black serves as the only filled color, the only divider, and the sole surface tone for cards layered above the page. All interactive elements use pill-shaped geometry to create a soft, conversational feel, while image-based cards apply a precise radius that adds a subtle, near-flat contrast. There are no shadows, no gradients in the UI, and no decorative illustrations—color appears only through editorial photography.\n\n## Style Foundations\n- Visual style: modern, minimal, clean\n- Typography scale: 12/14/16/20/24/32 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, secondary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "colorful",
+      "name": "colorful",
+      "description": "Vibrant, high-contrast palettes and gradients for engaging, memorable, and modern user experiences.",
+      "visual_style": [
+        "high-contrast",
+        "playful",
+        "premium"
+      ],
+      "typography_scale": "12/14/16/20/24/32",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, neutral, success, warning, danger",
+      "spacing_scale": "8pt baseline grid",
+      "substance": "## Brand\nColorful UI/UX design uses vibrant, high-contrast palettes and gradients to create engaging, memorable, and modern user experiences\n\n## Style Foundations\n- Visual style: high-contrast, playful, premium\n- Typography scale: 12/14/16/20/24/32 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, neutral, success, warning, danger \n- Spacing scale: 8pt baseline grid\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states, semantic HTML before ARIA, screen-reader tested labels, reduced-motion support, 44px+ touch targets\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "contemporary",
+      "name": "contemporary",
+      "description": "Current-era minimalist design with bento grids, dark mode support, and high-performance accessible layouts.",
+      "visual_style": [
+        "modern",
+        "minimal",
+        "bold",
+        "playful"
+      ],
+      "typography_scale": "desktop-first expressive scale",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, secondary, neutral",
+      "spacing_scale": "comfortable density mode",
+      "substance": "## Brand\nContemporary UI/UX design focuses on, minimalist, accessible, and high-performance, featuring Bento grids, dark mode, and, AI-powered personalization\n\n## Style Foundations\n- Visual style: modern, minimal, bold, playful\n- Typography scale: desktop-first expressive scale | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, secondary, neutral \n- Spacing scale: comfortable density mode\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states, semantic HTML before ARIA, screen-reader tested labels, reduced-motion support, 44px+ touch targets, high-contrast support\n\n## Writing Tone\nconcise, confident, helpful, friendly, professional\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "corporate",
+      "name": "corporate",
+      "description": "Professional, brand-aligned design with structured grids, minimalist layouts, and consistent enterprise patterns.",
+      "visual_style": [
+        "enterprise",
+        "premium"
+      ],
+      "typography_scale": "desktop-first expressive scale",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, neutral, success, warning, danger",
+      "spacing_scale": "8pt baseline grid",
+      "substance": "## Brand\nCorporate UI/UX design focuses on professionalism, consistency, and brand alignment, typically featuring minimalist layouts, structured grids, and, in 2026, AI-driven personalization\n\n## Style Foundations\n- Visual style: enterprise, premium\n- Typography scale: desktop-first expressive scale | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, neutral, success, warning, danger \n- Spacing scale: 8pt baseline grid\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states, semantic HTML before ARIA, screen-reader tested labels, reduced-motion support, 44px+ touch targets, high-contrast support\n\n## Writing Tone\nconcise, confident, helpful, clear, professional, action-oriented, low-jargon\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n- design for empty/loading/error states\n- ensure responsive behavior by default\n- document accessibility rationale\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid decorative motion without purpose\n- avoid ambiguous labels\n- avoid mixing multiple visual metaphors\n- avoid inaccessible hit areas"
+    },
+    {
+      "slug": "cosmic",
+      "name": "cosmic",
+      "description": "Futuristic sci-fi aesthetic with dark themes, vibrant neon accents, and immersive spatial elements.",
+      "visual_style": [
+        "playful",
+        "premium"
+      ],
+      "typography_scale": "12/14/16/20/24/32",
+      "weights": "400",
+      "colour_roles": "primary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Brand\nCosmic UI/UX design is a futuristic, sci-fi-inspired style characterized by dark themes, vibrant neon accents, and immersive, spatial elements\n\n## Style Foundations\n- Visual style: playful, premium\n- Typography scale: 12/14/16/20/24/32 | weights=400\n- Color palette: primary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "creative",
+      "name": "creative",
+      "description": "Playful, character-driven design with expressive typography and bold graphics for landing pages and creative projects.",
+      "visual_style": [
+        "playful"
+      ],
+      "typography_scale": "12/14/16/20/24/32",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, secondary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Brand\ncerative style for landing  pages\n\n## Style Foundations\n- Visual style: playful\n- Typography scale: 12/14/16/20/24/32 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, secondary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "dithered",
+      "name": "dithered",
+      "description": "Dot-pattern rendering technique that simulates shades with a limited palette for nostalgic, retro, high-contrast visuals.",
+      "visual_style": [
+        "modern",
+        "minimal"
+      ],
+      "typography_scale": "14/16/18/24/32/40",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Brand\nDithered Is a technique that uses patterns of dots to simulate shades and colors with a limited palette within modern digital interfaces to create nostalgic, retro, or high-contrast, artistic visual styles\n\n## Style Foundations\n- Visual style: modern, minimal\n- Typography scale: 14/16/18/24/32/40 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n- design for empty/loading/error states\n- ensure responsive behavior by default\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid decorative motion without purpose\n- avoid ambiguous labels\n- avoid inaccessible hit areas"
+    },
+    {
+      "slug": "doodle",
+      "name": "doodle",
+      "description": "Hand-drawn, sketch-like style with doodles, handwritten fonts, and imperfect lines for a playful, informal feel.",
+      "visual_style": [
+        "playful"
+      ],
+      "typography_scale": "14/16/18/24/32/40",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, secondary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Brand\na creative, playful, and informal style that utilizes doodles, sketches, handwritten fonts, and imperfect lines to foster emotional connection and a raw, artistic feel\n\n## Style Foundations\n- Visual style: playful\n- Typography scale: 14/16/18/24/32/40 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, secondary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "dramatic",
+      "name": "dramatic",
+      "description": "High-contrast, theatrical design with bold layouts, immersive visuals, and unconventional compositions that command attention.",
+      "visual_style": [
+        "modern",
+        "clean",
+        "high-contrast"
+      ],
+      "typography_scale": "12/14/16/20/24/32",
+      "weights": "400, 900",
+      "colour_roles": "primary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Brand\nDramatic design style is a trend characterized by high-contrast visuals, bold, unconventional layouts, and immersive, theatrical experiences designed to grab user attention.\n\n## Style Foundations\n- Visual style: modern, clean, high-contrast\n- Typography scale: 12/14/16/20/24/32 | weights=400, 900\n- Color palette: primary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "editorial",
+      "name": "editorial",
+      "description": "Magazine-inspired editorial layout with refined serif typography, structured grids, and elegant reading experiences.",
+      "visual_style": [
+        "modern",
+        "editorial"
+      ],
+      "typography_scale": "14/16/18/24/32/40",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, secondary, neutral, success",
+      "spacing_scale": "8pt baseline grid",
+      "substance": "## Style Foundations\n- Visual style: modern, editorial\n- Typography scale: 14/16/18/24/32/40 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, secondary, neutral, success \n- Spacing scale: 8pt baseline grid\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states, semantic HTML before ARIA, screen-reader tested labels, reduced-motion support, 44px+ touch targets, high-contrast support\n\n## Writing Tone\nconcise, confident, helpful, clear, friendly, professional, action-oriented, low-jargon\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n- design for empty/loading/error states\n- ensure responsive behavior by default\n- document accessibility rationale\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "enterprise",
+      "name": "enterprise",
+      "description": "Dark-themed cloud-platform aesthetic with modular grids, glass-like panels, and strong data hierarchy for productivity dashboards.",
+      "visual_style": [
+        "modern",
+        "clean",
+        "cloud-platform aesthetic (heroku/vercel/github inspired)",
+        "dark theme",
+        "subtle gradients",
+        "soft shadows",
+        "glass-like panels",
+        "rounded components"
+      ],
+      "typography_scale": "12/14/16/20/24/32",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, neutral, success, warning, danger",
+      "spacing_scale": "8pt baseline grid",
+      "substance": "## Brand\nEnterprise design emphasizes grids, modular components, and strong visual hierarchy to present complex data in a clear and accessible way. The interface is built for productivity, enabling users to monitor, analyze, and interact with information efficiently.\n\n## Style Foundations\n- Visual style: modern, clean, cloud-platform aesthetic (Heroku/Vercel/GitHub inspired), dark theme, subtle gradients, soft shadows, glass-like panels, rounded components\n- Typography scale: 12/14/16/20/24/32 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, neutral, success, warning, danger \n- Spacing scale: 8pt baseline grid\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states, semantic HTML before ARIA, screen-reader tested labels, reduced-motion support, 44px+ touch targets, high-contrast support\n\n## Writing Tone\nconcise, confident, helpful, clear, friendly, professional, action-oriented, low-jargon\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n- design for empty/loading/error states\n- ensure responsive behavior by default\n- document accessibility rationale\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid decorative motion without purpose\n- avoid ambiguous labels\n- avoid mixing multiple visual metaphors\n- avoid inaccessible hit areas"
+    },
+    {
+      "slug": "expressive",
+      "name": "expressive",
+      "description": "Vibrant, personality-driven design with bold colors, playful graphics, and dynamic layouts that balance creativity with structure.",
+      "visual_style": [
+        "modern",
+        "playful"
+      ],
+      "typography_scale": "14/16/18/24/32/40",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, secondary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Brand\nA vibrant and visually engaging design style that uses bold colors, playful graphics, and dynamic layouts to create a strong personality. It emphasizes creativity and energy while maintaining clear structure and modern UI patterns.\n\n## Style Foundations\n- Visual style: modern, playful\n- Typography scale: 14/16/18/24/32/40 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, secondary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "fantasy",
+      "name": "fantasy",
+      "description": "Game-inspired fantasy aesthetic with bold, premium visuals, rich color palettes, and immersive thematic elements.",
+      "visual_style": [
+        "bold",
+        "premium"
+      ],
+      "typography_scale": "12/14/16/20/24/32",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, secondary, success, warning, danger, info",
+      "spacing_scale": "8pt baseline grid",
+      "substance": "## Brand\nthe best game in the world\n\n## Style Foundations\n- Visual style: bold, premium\n- Typography scale: 12/14/16/20/24/32 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, secondary, success, warning, danger, info \n- Spacing scale: 8pt baseline grid\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "fiction",
+      "name": "\"fiction\"",
+      "description": "\"A playful, energetic, cartoonesque interface inspired by friendly children's-book illustrations — warm cream backgrounds, big bold custom display typography, saturated brand color blocks, thick black outlines, generously rounded shapes\"",
+      "visual_style": [
+        "playful"
+      ],
+      "typography_scale": "12/14/16/20/24/32",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Brand\nA playful, energetic, cartoonesque interface inspired by friendly children's-book illustrations — warm cream backgrounds, big bold custom display typography, saturated brand color blocks, thick black outlines, generously rounded shapes, flat surfaces with almost no shadows, and decorative hand-drawn-feeling illustrations in every section.\n\n## Style Foundations\n- Visual style: playful\n- Typography scale: 12/14/16/20/24/32 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "flat",
+      "name": "flat",
+      "description": "Two-dimensional minimalist style with vibrant colors, clean typography, and no 3D effects for fast, user-friendly interfaces.",
+      "visual_style": [
+        "minimal",
+        "enterprise"
+      ],
+      "typography_scale": "12/14/16/20/24/32",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Brand\na minimalist style characterized by two-dimensional elements, vibrant colors, and clean typography, focusing on functionality over ornamentation. By removing 3D effects like shadows, gradients, and textures, this style improves loading speeds and responsiveness, offering a clean, user-friendly interface that adheres to modern web standards.\n\n## Style Foundations\n- Visual style: minimal, enterprise\n- Typography scale: 12/14/16/20/24/32 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful, clear, friendly, professional\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n- design for empty/loading/error states\n- ensure responsive behavior by default\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid decorative motion without purpose\n- avoid ambiguous labels\n- avoid mixing multiple visual metaphors"
+    },
+    {
+      "slug": "friendly",
+      "name": "friendly",
+      "description": "Approachable, intuitive design with rounded elements, ample whitespace, and soft pastel color palettes.",
+      "visual_style": [
+        "bold",
+        "playful",
+        "premium"
+      ],
+      "typography_scale": "14/16/18/24/32/40",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, secondary, neutral",
+      "spacing_scale": "compact density mode",
+      "substance": "## Brand\nFriendly UI/UX design focuses on creating approachable, intuitive, and engaging experiences through, rounded elements, ample whitespace, and, soft, pastel, color, palettes\n\n## Style Foundations\n- Visual style: bold, playful, premium\n- Typography scale: 14/16/18/24/32/40 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, secondary, neutral \n- Spacing scale: compact density mode\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "futuristic",
+      "name": "futuristic",
+      "description": "Forward-looking design with tech-inspired typography, modern layouts, and a sleek, innovation-driven aesthetic.",
+      "visual_style": [
+        "modern"
+      ],
+      "typography_scale": "desktop-first expressive scale",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Style Foundations\n- Visual style: modern\n- Typography scale: desktop-first expressive scale | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "geometric",
+      "name": "geometric",
+      "description": "Geometric, structured design with clean typography, neutral colors, precise shapes, and intuitive layouts that stay out of the way.",
+      "visual_style": [
+        "geometric",
+        "structured",
+        "clean"
+      ],
+      "typography_scale": "12/14/16/20/24/32",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Style Foundations\n- Visual style: geometric, structured, clean\n- Typography scale: 12/14/16/20/24/32 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "glassmorphism",
+      "name": "glassmorphism",
+      "description": "Frosted glass effect with translucent layers, subtle blur, and luminous borders for depth and modern elegance.",
+      "visual_style": [
+        "clean",
+        "high-contrast",
+        "bold",
+        "enterprise",
+        "liquidglass effect",
+        "glassmorphism"
+      ],
+      "typography_scale": "mobile-first compact scale",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, neutral, success, warning, danger, info, surface/subtle layers",
+      "spacing_scale": "comfortable density mode",
+      "substance": "## Brand\nprovide fast, reliable communication for individuals, teams, and communities while maintaining a clean interface and high performance across desktop environments.\n\n## Style Foundations\n- Visual style: clean, high-contrast, bold, enterprise, liquidglass effect, glassmorphism\n- Typography scale: mobile-first compact scale | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, neutral, success, warning, danger, info, surface/subtle layers \n- Spacing scale: comfortable density mode\n\n- bento cards\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful, clear, friendly, professional\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid decorative motion without purpose\n- avoid ambiguous labels\n- avoid mixing multiple visual metaphors"
+    },
+    {
+      "slug": "gradient",
+      "name": "gradient",
+      "description": "Smooth color transitions and gradient-rich surfaces for modern, playful interfaces with visual depth.",
+      "visual_style": [
+        "modern",
+        "playful"
+      ],
+      "typography_scale": "12/14/16/18/24/30/36",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, secondary, neutral, success, warning, danger",
+      "spacing_scale": "8pt baseline grid",
+      "substance": "## Brand\nGradient design style\n\n## Style Foundations\n- Visual style: modern, playful\n- Typography scale: 12/14/16/18/24/30/36 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, secondary, neutral, success, warning, danger \n- Spacing scale: 8pt baseline grid\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states, semantic HTML before ARIA, screen-reader tested labels, 44px+ touch targets\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "immersive",
+      "name": "\"immersive\"",
+      "description": "\"An immersive, interactive, exhibit-style interface that blends storytelling, animation, and gamified elements to create a playful, experience-driven journey. The entire app sits on a single continuous brand-colored canvas (deep green)\"",
+      "visual_style": [
+        "modern",
+        "clean",
+        "high-contrast"
+      ],
+      "typography_scale": "12/14/16/20/24/32",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Brand\nAn immersive, interactive, exhibit-style interface that blends storytelling, animation, and gamified elements to create a playful, experience-driven journey. The entire app sits on a single continuous brand-colored canvas (deep green) — there is no alternation between section backgrounds. Crisp white cards with thick black borders, hard offset block shadows, and oversized condensed display typography (Oswald) punch off that canvas. Buttons are skewed white blocks with hard black shadows that grow on hover, like posters or arcade signs reacting to the player. Decorative geometric blocks in brand-tertiary (cobalt blue) and brand-quaternary (hot pink) layer behind cards to add depth without breaking the brand-color continuity. The result feels less like browsing a website and more like exploring a digital exhibit.\n\n## Style Foundations\n- Visual style: modern, clean, high-contrast\n- Typography scale: 12/14/16/20/24/32 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "impeccable",
+      "name": "\"impeccable\"",
+      "description": "\"A modern, graphic, editorial-poster aesthetic — warm and confident — built on alternating cream and burnt orange sections, an amber brand color.\"",
+      "visual_style": [
+        "modern",
+        "clean",
+        "high-contrast"
+      ],
+      "typography_scale": "12/14/16/20/24/32",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Brand\nA modern, graphic, editorial-poster aesthetic — warm and confident — built on alternating cream and burnt orange sections, an amber brand color.\n\n## Style Foundations\n- Visual style: modern, clean, high-contrast\n- Typography scale: 12/14/16/20/24/32 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "levels",
+      "name": "levels",
+      "description": "Conversion-focused design that removes friction and guides users toward action through clarity, trust, and speed.",
+      "visual_style": [
+        "modern",
+        "clean"
+      ],
+      "typography_scale": "12/14/16/20/24/32",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Brand\nLevels design focuses on removing friction, building trust, and guiding users toward a specific action through clarity, psychology, and speed\n\n## Style Foundations\n- Visual style: modern, clean\n- Typography scale: 12/14/16/20/24/32 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "lingo",
+      "name": "lingo",
+      "description": "Playful, minimal design with bright colors, rounded shapes, tactile 3D borders, and friendly illustrations for approachable interfaces.",
+      "visual_style": [
+        "bold",
+        "playful"
+      ],
+      "typography_scale": "12/14/16/20/24/32",
+      "weights": "400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Brand\nLingo is a duolingo inspired design style that combines minimal layouts with bright colors, rounded shapes, and friendly illustrations to create an engaging and approachable interface. It focuses on clarity and simplicity while adding personality that makes the product feel welcoming and interactive.\n\n## Style Foundations\n- Visual style: bold, playful\n- Typography scale: 12/14/16/20/24/32 | weights=400, 500, 600, 700, 800, 900\n- Color palette: primary, neutral, success, warning, danger \n- Shadows: tactile 3D-like bottom borders (e.g., border-b-4) or soft drop shadows for interactive elements\n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid decorative motion without purpose\n- avoid ambiguous labels\n- avoid mixing multiple visual metaphors\n- avoid inaccessible hit areas"
+    },
+    {
+      "slug": "material",
+      "name": "material",
+      "description": "Google's Material Design with layered surfaces, dynamic theming, built-in motion, and responsive cross-platform patterns.",
+      "visual_style": [
+        "modern",
+        "minimal",
+        "clean"
+      ],
+      "typography_scale": "12/14/16/20/24/32",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, secondary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Brand\nUX (user experience) designers use it to create visually consistent, intuitive, and responsive digital experiences. With built-in motion, layering, and dynamic theming, Material Design helps teams deliver accessible, high-quality UIs (user interfaces) across devices and platforms.\n\n## Style Foundations\n- Visual style: modern, minimal, clean\n- Typography scale: 12/14/16/20/24/32 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, secondary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "matrix",
+      "name": "\"matrix\"",
+      "description": "\"A cyber-slick, dark-only Matrix-inspired interface defined by minimalist fashion, high-tech digital elements\"",
+      "visual_style": [
+        "high-contrast"
+      ],
+      "typography_scale": "12/14/16/20/24/32",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Brand\nA cyber-slick, dark-only Matrix-inspired interface defined by minimalist fashion, high-tech digital elements, monospaced typography, and a single deep monochromatic surface. The aesthetic borrows from order-book exchanges and terminal interfaces: ultra-dense layouts, mono numerics, hairline borders, near-square 2px corners, a single brand-green accent that drives every interaction, and a flat dark surface across every section.\n\n## Style Foundations\n- Visual style: high-contrast\n- Typography scale: 12/14/16/20/24/32 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful, clear, friendly\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n- design for empty/loading/error states\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "minimal",
+      "name": "minimal",
+      "description": "Stripped-back design emphasizing whitespace, clean typography, and restrained color for maximum clarity and focus.",
+      "visual_style": [
+        "minimal",
+        "clean",
+        "bold"
+      ],
+      "typography_scale": "desktop-first expressive scale",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Style Foundations\n- Visual style: minimal, clean, bold\n- Typography scale: desktop-first expressive scale | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "modern",
+      "name": "modern",
+      "description": "Contemporary editorial style with serif typography, minimal palettes, and clean layouts for polished digital products.",
+      "visual_style": [
+        "modern",
+        "minimal",
+        "clean",
+        "editorial"
+      ],
+      "typography_scale": "12/14/16/20/24/32",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, secondary",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Brand\nShip software peacefully\n\n## Style Foundations\n- Visual style: modern, minimal, clean, editorial\n- Typography scale: 12/14/16/20/24/32 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, secondary \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "mono",
+      "name": "mono",
+      "description": "Monospace-driven, matrix-inspired design with high-contrast elements, compact density, and a hacker-chic aesthetic.",
+      "visual_style": [
+        "minimal",
+        "clean",
+        "high-contrast",
+        "playful",
+        "matrix"
+      ],
+      "typography_scale": "desktop-first expressive scale",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, secondary, success, warning, danger, info",
+      "spacing_scale": "compact density mode",
+      "substance": "## Brand\nJoin the private club where people are building, monetizing, and marketing products with AI.\n\n## Style Foundations\n- Visual style: minimal, clean, high-contrast, playful, matrix\n- Typography scale: desktop-first expressive scale | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, secondary, success, warning, danger, info \n- Spacing scale: compact density mode\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states, semantic HTML before ARIA, screen-reader tested labels\n\n## Writing Tone\nconcise, confident, helpful, clear, friendly\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n- design for empty/loading/error states\n- ensure responsive behavior by default\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid decorative motion without purpose\n- avoid ambiguous labels\n- avoid mixing multiple visual metaphors\n- avoid inaccessible hit areas"
+    },
+    {
+      "slug": "neobrutalism",
+      "name": "neobrutalism",
+      "description": "Modern take on brutalism with bold borders, vivid accent colors, and raw, high-contrast layouts on warm surfaces.",
+      "visual_style": [
+        "modern",
+        "clean",
+        "high-contrast"
+      ],
+      "typography_scale": "13/15/17/21/27/35",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Style Foundations\n- Visual style: modern, clean, high-contrast\n- Typography scale: 13/15/17/21/27/35 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "neon",
+      "name": "neon",
+      "description": "Electric neon glow effects with high-contrast color pairings for bold, attention-grabbing interfaces.",
+      "visual_style": [
+        "high-contrast"
+      ],
+      "typography_scale": "14/16/18/24/32/40",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, secondary",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Brand\nNeon high contrast design\n\n## Style Foundations\n- Visual style: high-contrast\n- Typography scale: 14/16/18/24/32/40 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, secondary \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "neumorphism",
+      "name": "neumorphism",
+      "description": "Soft, extruded UI elements with inner and outer shadows on monochromatic surfaces for a tactile, embedded look.",
+      "visual_style": [
+        "minimal",
+        "clean",
+        "high-contrast",
+        "playful",
+        "matrix"
+      ],
+      "typography_scale": "desktop-first expressive scale",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, secondary, success, warning, danger, info",
+      "spacing_scale": "compact density mode",
+      "substance": "## Brand\nJoin the private club where people are building, monetizing, and marketing products with AI.\n\n## Style Foundations\n- Visual style: minimal, clean, high-contrast, playful, matrix\n- Typography scale: desktop-first expressive scale | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, secondary, success, warning, danger, info \n- Spacing scale: compact density mode\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states, semantic HTML before ARIA, screen-reader tested labels\n\n## Writing Tone\nconcise, confident, helpful, clear, friendly\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n- design for empty/loading/error states\n- ensure responsive behavior by default\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid decorative motion without purpose\n- avoid ambiguous labels\n- avoid mixing multiple visual metaphors\n- avoid inaccessible hit areas"
+    },
+    {
+      "slug": "pacman",
+      "name": "pacman",
+      "description": "Retro arcade-inspired design with pixel fonts, dotted borders, playful high-contrast colors, and 8-bit game aesthetics.",
+      "visual_style": [
+        "high-contrast",
+        "playful",
+        "dotted borders"
+      ],
+      "typography_scale": "desktop-first expressive scale",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, secondary, success, warning, danger, info, surface/subtle layers",
+      "spacing_scale": "8pt baseline grid",
+      "substance": "## Brand\nDive into the legendary arcade adventure of Pac‑Man, where quick reflexes and smart moves help you clear mazes and escape the ghosts.\n\n## Style Foundations\n- Visual style: high-contrast, playful, dotted borders\n- Typography scale: desktop-first expressive scale | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, secondary, success, warning, danger, info, surface/subtle layers \n- Spacing scale: 8pt baseline grid\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states, reduced-motion support, 44px+ touch targets, high-contrast support\n\n## Writing Tone\nprofessional\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid decorative motion without purpose\n- avoid ambiguous labels\n- avoid mixing multiple visual metaphors"
+    },
+    {
+      "slug": "paper",
+      "name": "paper",
+      "description": "Paper-textured, print-inspired design with minimal colors, clean serif/sans typography, and tactile surface qualities.",
+      "visual_style": [
+        "minimal",
+        "clean"
+      ],
+      "typography_scale": "14/16/18/24/32/40",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Brand\nPaper design style\n\n## Style Foundations\n- Visual style: minimal, clean\n- Typography scale: 14/16/18/24/32/40 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "perspective",
+      "name": "perspective",
+      "description": "Spatial depth design with isometric views, vanishing points, and layered elements that guide attention through 3D-like realism.",
+      "visual_style": [
+        "modern",
+        "clean",
+        "high-contrast"
+      ],
+      "typography_scale": "12/14/16/20/24/32",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Brand\nThis style moves beyond flat design by employing techniques like isometric views, vanishing points, and layered elements to guide the user's attention and create a sense of realism or \"spatial\" depth.\n\n## Style Foundations\n- Visual style: modern, clean, high-contrast\n- Typography scale: 12/14/16/20/24/32 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "power",
+      "name": "power",
+      "description": "High-end dark aesthetic with bold headings, monochromatic palette, and premium feel for premium brand experiences.",
+      "visual_style": [
+        "modern",
+        "bold",
+        "big headings"
+      ],
+      "typography_scale": "desktop-first expressive scale",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary",
+      "spacing_scale": "8pt baseline grid",
+      "substance": "## Style Foundations\n- Visual style: modern, bold, big headings\n- Typography scale: desktop-first expressive scale | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary \n- Spacing scale: 8pt baseline grid\n\n## Accessibility\nkeyboard-first interactions, visible focus states, semantic HTML before ARIA, 44px+ touch targets, high-contrast support\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "premium",
+      "name": "premium",
+      "description": "Apple-inspired premium aesthetic with precise spacing, modern typography, and a refined, polished visual language.",
+      "visual_style": [
+        "modern"
+      ],
+      "typography_scale": "12/14/16/18/24/30/36",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Brand\nApple design style\n\n## Style Foundations\n- Visual style: modern\n- Typography scale: 12/14/16/18/24/30/36 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "professional",
+      "name": "professional",
+      "description": "Polished, business-ready design with modern typography, structured layouts, and a trustworthy visual identity.",
+      "visual_style": [
+        "modern"
+      ],
+      "typography_scale": "mobile-first compact scale",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, secondary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Brand\nElectronics shop\n\n## Style Foundations\n- Visual style: modern\n- Typography scale: mobile-first compact scale | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, secondary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "pulse",
+      "name": "pulse",
+      "description": "Dynamic, vibrant style with thick borders, geometric shapes, high-contrast colors, and expressive typography conveying motion and vitality.",
+      "visual_style": [
+        "bold",
+        "geometric",
+        "vibrant",
+        "thick-bordered"
+      ],
+      "typography_scale": "12/14/16/20/24/32/48",
+      "weights": "400",
+      "colour_roles": "primary, secondary, neutral",
+      "spacing_scale": "4/8/12/16/24/32/48/64",
+      "substance": "## Brand\nPulse design style embodies vibrant, dynamic, and bold aesthetics. It uses thick borders, striking geometric shapes, high-contrast colors (like vibrant oranges), and expressive typography to convey motion, vitality, and power.\n\n## Style Foundations\n- Visual style: bold, geometric, vibrant, thick-bordered\n- Typography scale: 12/14/16/20/24/32/48 | weights=400\n- Color palette: primary, secondary, neutral \n- Spacing scale: 4/8/12/16/24/32/48/64\n- Borders: Thick 4px borders are a signature element.\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states. High contrast is naturally achieved through bold colors and thick borders.\n\n## Writing Tone\npunchy, dynamic, motivating, bold\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- use thick (4px) borders for structural elements and containers\n- preserve visual hierarchy with bold typography and scale\n- keep interaction states explicit with scale/transform animations\n\n## Rules: Don't\n- avoid thin or delicate borders\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid subtle or slow animations; prefer snappy, spring-based motion"
+    },
+    {
+      "slug": "refined",
+      "name": "refined",
+      "description": "Carefully curated, modern minimal style with elegant serif typography and understated, sophisticated palettes.",
+      "visual_style": [
+        "modern",
+        "minimal"
+      ],
+      "typography_scale": "12/14/16/20/24/32",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Brand\nRefined design style\n\n## Style Foundations\n- Visual style: modern, minimal\n- Typography scale: 12/14/16/20/24/32 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "retro",
+      "name": "retro",
+      "description": "Throwback design with vintage-inspired typography, high-contrast retro palettes, and nostalgic visual elements.",
+      "visual_style": [
+        "high-contrast",
+        "retro"
+      ],
+      "typography_scale": "desktop-first expressive scale",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Style Foundations\n- Visual style: high-contrast, retro\n- Typography scale: desktop-first expressive scale | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "riso",
+      "name": "\"riso\"",
+      "description": "\"A playful, joyful, two-color risograph print aesthetic built on a single warm off-white paper surface running through every section\"",
+      "visual_style": [
+        "clean",
+        "high-contrast"
+      ],
+      "typography_scale": "12/14/16/20/24/32",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, secondary",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Brand\nA playful, joyful, two-color risograph print aesthetic — built on a single warm off-white paper surface running through every section, a fluorescent brand pink reserved as the sole interaction driver, a deep federal-blue secondary carrying every heading and the signature offset print-shadow\n\n## Style Foundations\n- Visual style: clean, high-contrast\n- Typography scale: 12/14/16/20/24/32 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, secondary \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "roku",
+      "name": "roku",
+      "description": "App dashboard with purple-themed aesthetic, top-bar navigation, card-based layouts, and developer-first workflows.",
+      "visual_style": [
+        "modern",
+        "clean",
+        "high-contrast",
+        "glass-like panels",
+        "soft shadows",
+        "rounded components"
+      ],
+      "typography_scale": "12/14/16/20/24/32",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary (purple), neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Brand\nA modern, Vercel/GitHub-inspired application dashboard designed for clarity, speed, and developer-first workflows. The interface focuses on simplicity and visual hierarchy, allowing teams to monitor, deploy, and manage applications effortlessly from a single control center. Features a top-bar only navigation (no sidebar) and a clean purple-themed aesthetic.\n\n## Style Foundations\n- Visual style: modern, clean, high-contrast, glass-like panels, soft shadows, rounded components\n- Typography scale: 12/14/16/20/24/32 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary (purple), neutral, success, warning, danger \n- Layout: Top-bar only navigation, structured grid layout, card-based content\n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "sega",
+      "name": "\"sega\"",
+      "description": "\"A playful, arcade-inspired interface for games — built on the VT323 pixel typeface, hard-edged 0px corners, chunky pill buttons that physically press into solid offset blocks\"",
+      "visual_style": [
+        "modern",
+        "playful"
+      ],
+      "typography_scale": "13/15/17/21/27/35",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, secondary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Brand\nA playful, arcade-inspired interface for games — built on the VT323 pixel typeface, hard-edged 0px corners, chunky pill buttons that physically press into solid offset blocks, and cards wrapped in rainbow-ringed brand shadows that read like cabinet trim.\n\n## Style Foundations\n- Visual style: modern, playful\n- Typography scale: 13/15/17/21/27/35 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, secondary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "shadcn",
+      "name": "shadcn",
+      "description": "Shadcn/ui-inspired design with minimal, clean components, monochrome palette, and utility-first patterns.",
+      "visual_style": [
+        "minimal",
+        "clean"
+      ],
+      "typography_scale": "12/14/16/20/24/32",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, secondary",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Brand\nshadcn style design\n\n## Style Foundations\n- Visual style: minimal, clean\n- Typography scale: 12/14/16/20/24/32 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, secondary \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "sketch",
+      "name": "\"sketch\"",
+      "description": "\"A friendly, hand-drawn sketch interface inspired by pencil illustrations on warm cream paper. Soft teal brand accents, hand-written display headings, rounded pill controls.\"",
+      "visual_style": [
+        "modern",
+        "clean",
+        "high-contrast"
+      ],
+      "typography_scale": "12/14/16/20/24/32",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, secondary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Brand\nA friendly, hand-drawn sketch interface inspired by pencil illustrations on warm cream paper. Soft teal brand accents, hand-written display headings, rounded pill controls, dashed card outlines, and chunky offset \"pencil-drawn\" shadows give every surface a tactile, illustrated feel.\n\n## Style Foundations\n- Visual style: modern, clean, high-contrast\n- Typography scale: 12/14/16/20/24/32 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, secondary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "skeumorphism",
+      "name": "skeumorphism",
+      "description": "Real-world mimicry with textured surfaces, 3D effects, and familiar physical metaphors for intuitive digital interfaces.",
+      "visual_style": [
+        "playful"
+      ],
+      "typography_scale": "12/14/16/20/24/32",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, secondary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Brand\na UI/UX design approach that mimics real-world textures, materials, and 3D functionality to make digital interfaces intuitive, familiar, and relatable\n\n## Style Foundations\n- Visual style: playful\n- Typography scale: 12/14/16/20/24/32 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, secondary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "sleek",
+      "name": "sleek",
+      "description": "Modern minimalist aesthetic with clean lines, intentional color palette, subtle interactions, and consistent spacing.",
+      "visual_style": [
+        "modern",
+        "minimal",
+        "clean"
+      ],
+      "typography_scale": "desktop-first expressive scale",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, neutral, success, warning, danger",
+      "spacing_scale": "8pt baseline grid",
+      "substance": "## Brand\nSleek UI/UX design emphasizes a modern, minimalist aesthetic (\"less is more\") focused on clean lines, high functionality, and reduced cognitive load. Key elements include a limited, intentional color palette (e.g., the 60-30-10 rule), subtle, non-distracting interactions, and consistent spacing.\n\n## Style Foundations\n- Visual style: modern, minimal, clean\n- Typography scale: desktop-first expressive scale | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, neutral, success, warning, danger \n- Spacing scale: 8pt baseline grid\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "spacious",
+      "name": "spacious",
+      "description": "Generous whitespace, consistent padding, and grid-based layouts for clean, readable, and breathing interfaces.",
+      "visual_style": [
+        "minimal",
+        "clean"
+      ],
+      "typography_scale": "12/14/16/18/24/30/36",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, neutral, success, warning, danger",
+      "spacing_scale": "8pt baseline grid",
+      "substance": "## Brand\nSpacious UI/UX design uses generous white space, consistent padding, and a 4- or 8-point grid system to create clean, readable, and intuitive interfaces\n\n## Style Foundations\n- Visual style: minimal, clean\n- Typography scale: 12/14/16/18/24/30/36 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, neutral, success, warning, danger \n- Spacing scale: 8pt baseline grid\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states, semantic HTML before ARIA, screen-reader tested labels, reduced-motion support, 44px+ touch targets, high-contrast support\n\n## Writing Tone\nconcise, confident, helpful, clear, friendly, professional, action-oriented, low-jargon\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n- design for empty/loading/error states\n- ensure responsive behavior by default\n- document accessibility rationale\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid decorative motion without purpose\n- avoid ambiguous labels\n- avoid mixing multiple visual metaphors\n- avoid inaccessible hit areas"
+    },
+    {
+      "slug": "square",
+      "name": "square",
+      "description": "Graceful, refined aesthetic with delicate typography, minimal palettes, and polished layouts that exude sophistication.",
+      "visual_style": [
+        "minimal",
+        "clean"
+      ],
+      "typography_scale": "14/16/18/24/32/40",
+      "weights": "100, 200, 300, 400, 500, 600",
+      "colour_roles": "primary, secondary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Style Foundations\n- Visual style: minimal, clean\n- Typography scale: 14/16/18/24/32/40 | weights=100, 200, 300, 400, 500, 600\n- Color palette: primary, secondary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "stitch",
+      "name": "stitch",
+      "description": "Clean, high-contrast enterprise design for data-driven workflows with intuitive drag-and-drop patterns and structured layouts.",
+      "visual_style": [
+        "clean",
+        "high-contrast",
+        "enterprise"
+      ],
+      "typography_scale": "desktop-first expressive scale",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, success, warning, danger",
+      "spacing_scale": "comfortable density mode",
+      "substance": "## Brand\nEverything you need – data, apps, and AI in an intuitive drag and drop interface to automate your workflows.\n\n## Style Foundations\n- Visual style: clean, high-contrast, enterprise\n- Typography scale: desktop-first expressive scale | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, success, warning, danger \n- Spacing scale: comfortable density mode\n\n- patterns\n- images\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconfident, helpful, friendly, professional\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid decorative motion without purpose\n- avoid ambiguous labels\n- avoid mixing multiple visual metaphors\n- avoid inaccessible hit areas"
+    },
+    {
+      "slug": "storytelling",
+      "name": "storytelling",
+      "description": "Narrative-driven design using visuals, copy, and interaction to guide users through engaging, emotionally resonant journeys.",
+      "visual_style": [
+        "playful"
+      ],
+      "typography_scale": "desktop-first expressive scale",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Brand\na narrative techniques to create engaging, intuitive, and emotionally resonant digital experiences. It guides users through a cohesive journey using visuals, copy, and interaction, transforming functional interfaces into memorable experiences.\n\n## Style Foundations\n- Visual style: playful\n- Typography scale: desktop-first expressive scale | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "terracotta",
+      "name": "\"terracotta\"",
+      "description": "\"A sun-baked, clay-toned editorial interface built on warm cream surfaces, ink-brown headlines set in a display serif, and a single terracotta accent.\"",
+      "visual_style": [
+        "modern",
+        "clean",
+        "high-contrast",
+        "playful"
+      ],
+      "typography_scale": "14/16/18/24/32/40",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Brand\nA sun-baked, clay-toned editorial interface built on warm cream surfaces, ink-brown headlines set in a display serif, and a single terracotta accent. Earthy, human, and content-first — tuned for long-form reading, blogs, storytelling, and editorial layouts where readability and visual rhythm matter.\n\n## Style Foundations\n- Visual style: modern, clean, high-contrast, playful\n- Typography scale: 14/16/18/24/32/40 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states, 44px+ touch targets, high-contrast support\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "tetris",
+      "name": "tetris",
+      "description": "Classic block-game inspired design with playful colors, bold display fonts, and compact, high-energy layouts.",
+      "visual_style": [
+        "high-contrast",
+        "playful",
+        "premium"
+      ],
+      "typography_scale": "desktop-first expressive scale",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, secondary, success, warning, danger, info",
+      "spacing_scale": "compact density mode",
+      "substance": "## Brand\nthe most iconic game of history\n\n## Style Foundations\n- Visual style: high-contrast, playful, premium\n- Typography scale: desktop-first expressive scale | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, secondary, success, warning, danger, info \n- Spacing scale: compact density mode\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "vibrant",
+      "name": "vibrant",
+      "description": "Lively, colorful design with bold playful typography, warm accents, and dynamic visual energy.",
+      "visual_style": [
+        "modern",
+        "clean",
+        "bold",
+        "playful"
+      ],
+      "typography_scale": "14/16/18/24/32/40",
+      "weights": "100, 200, 300, 400, 500, 600, 700, 800, 900",
+      "colour_roles": "primary, secondary, neutral, success",
+      "spacing_scale": "2/4/8/12/16/24/32/48",
+      "substance": "## Brand\nVibrant style\n\n## Style Foundations\n- Visual style: modern, clean, bold, playful\n- Typography scale: 14/16/18/24/32/40 | weights=100, 200, 300, 400, 500, 600, 700, 800, 900\n- Color palette: primary, secondary, neutral, success \n- Spacing scale: 2/4/8/12/16/24/32/48\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states, screen-reader tested labels, reduced-motion support, 44px+ touch targets, high-contrast support\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    },
+    {
+      "slug": "vintage",
+      "name": "vintage",
+      "description": "1950s-1990s nostalgia with skeuomorphic touches, grainy textures, retro color palettes, and pixel-style typography.",
+      "visual_style": [
+        "clean",
+        "vintage",
+        "retro"
+      ],
+      "typography_scale": "12/14/16/20/24/32",
+      "weights": "400, 700",
+      "colour_roles": "primary, neutral, success, warning, danger",
+      "spacing_scale": "4/8/12/16/24/32",
+      "substance": "## Brand\nVintage design style revives aesthetics from the 1950s–1990s, blending nostalgia with modern functionality through skeuomorphic elements, grainy textures, and retro color palettes\n\n## Style Foundations\n- Visual style: clean, vintage, retro\n- Typography scale: 12/14/16/20/24/32 | weights=400, 700\n- Color palette: primary, neutral, success, warning, danger \n- Spacing scale: 4/8/12/16/24/32\n\n## Accessibility\nWCAG 2.2 AA, keyboard-first interactions, visible focus states\n\n## Writing Tone\nconcise, confident, helpful\n\n## Rules: Do\n- prefer semantic tokens over raw values\n- preserve visual hierarchy\n- keep interaction states explicit\n\n## Rules: Don't\n- avoid low contrast text\n- avoid inconsistent spacing rhythm\n- avoid ambiguous labels"
+    }
+  ]
+}

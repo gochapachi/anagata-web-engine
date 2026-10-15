@@ -7,6 +7,16 @@
  * styled from genome tokens, and typed.
  */
 
+import {
+  Reveal,
+  Parallax,
+  StatCounter,
+  TiltCard,
+  StickyScene,
+  ScrollProgress,
+  Marquee,
+} from '@/components/motion';
+
 export interface QuickSummaryProps {
   points?: string[];
   title?: string;
@@ -221,6 +231,12 @@ export function BeforeAfterComparison({
 /**
  * The closed component map handed to `MDXRemote`. Adding a component here is the
  * only way AI-authored MDX can reach it.
+ *
+ * NOTE ON CLIENT COMPONENTS: the motion primitives below are the map's only
+ * 'use client' entries. They are safe to expose because the agent still cannot
+ * inject code — it names a component and passes serialisable props, and the
+ * behaviour itself lives in engine source. Each one degrades to static content
+ * if JS never runs, so exposing them cannot produce a blank page.
  */
 export const MDX_COMPONENTS = {
   QuickSummary,
@@ -230,6 +246,14 @@ export const MDX_COMPONENTS = {
   Callout,
   InlineLeadCTA,
   BeforeAfterComparison,
+  // Motion / 3D primitives (src/components/motion)
+  Reveal,
+  Parallax,
+  StatCounter,
+  TiltCard,
+  StickyScene,
+  ScrollProgress,
+  Marquee,
 } as const;
 
 /** Used by the workflow prompt so the agent knows exactly what it may emit. */

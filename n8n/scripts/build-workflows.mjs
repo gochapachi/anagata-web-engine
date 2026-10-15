@@ -473,6 +473,40 @@ const sharedBrief = [
   request.brand_notes ? 'BRAND NOTES: ' + request.brand_notes : null,
 ].filter(Boolean).join('\\n');
 
+// CRAFT LAYER. The genome constrains STRUCTURE (shell, nav, colour, rhythm,
+// fonts); it says nothing about state coverage, spacing discipline or
+// interaction quality, which is why generated pages read as competent-generic
+// rather than designed. The engine picks ONE vendored design skill whose
+// declared style is compatible with this shell and returns it pre-rendered.
+//
+// It is a SUB-AXIS, so it cannot weaken the anti-sameness guarantees: it is not
+// part of structureSignature(), and the engine has already stripped the skill's
+// hex values and font names, so it cannot override the typography or palette
+// axes either. Refuse the run if it is missing - an older engine would silently
+// drop the craft layer and every site would regress to the same look.
+//
+// ORDER MATTERS AND IS NOT OBVIOUS FROM READING. This must sit ABOVE
+// designBrief: an earlier revision extracted the block underneath the brief it
+// was supposed to feed, so the guard passed, the run succeeded, and no page
+// ever received a craft rule. The build guard
+// 'design brief carries the craft layer' is what catches that class now.
+const designSkill = genomeResponse.design_skill ?? {};
+const designSkillBlock = String(designSkill.block ?? '');
+const designSkillSlug = String(designSkill.slug ?? '');
+if (!designSkillBlock) {
+  throw new Error(
+    'Genome response carries no design skill block - the engine predates the craft layer. ' +
+    'Deploy the engine before the workflow. Response keys: ' +
+    Object.keys(genomeResponse).join(', ')
+  );
+}
+
+// Persisted INSIDE design_genome, alongside _rhythm and _hue, so no DB column is
+// added (the Supabase MCP here is read-only, so a migration is not available).
+// Safe for the same reason the axis itself is: it never participates in
+// structureSignature().
+genome._design_skill = designSkillSlug;
+
 const designBrief = [
   'SHELL: ' + genome.shell_archetype,
   'NAV: ' + genome.nav_topology,
@@ -483,6 +517,11 @@ const designBrief = [
   'SURFACE: ' + (profile.surface_treatment ?? 'unspecified'),
   'MOTION: ' + genome.motion_profile,
   'MAX SECTIONS: ' + (profile.max_sections ?? 11),
+  '',
+  // The craft layer, appended so the structural brief stays the first thing the
+  // agent reads (it is authoritative) and the skill rules follow under their own
+  // PRECEDENCE clause.
+  designSkillBlock,
 ].join('\\n');
 
 const pages = [
@@ -520,6 +559,61 @@ const pages = [
     minSections: 3,
   },
 ];
+
+// NICHE PAGE SETS. The four pages above are the floor every site needs. A real
+// professional-services site sells a niche, not a template, so the niche adds
+// pages that a buyer in that market actually looks for: a valuation-led estate
+// agency needs area guides and a valuation page; a tax practice needs a fee
+// schedule and a deadline calendar. Keyed on the request's niche string, matched
+// as a substring so 'real-estate', 'realestate' and 'property' all land.
+//
+// Adding a page here does NOT weaken anti-sameness: pages live under a site, and
+// structureSignature() is computed from the genome, not the page list.
+const NICHE_PAGES = {
+  'real estate': [
+    { slug: 'areas', title: 'Areas We Cover', minSections: 3,
+      intent: 'Local area guide hub. One card per locality served in ' + request.city + ', each explaining what is in demand there, typical price bands, and who it suits. Link each card to its own area page.' },
+    { slug: 'valuation', title: 'Free Property Valuation', minSections: 3,
+      intent: 'Lead-capture valuation page. Explain exactly what the valuation covers, how long it takes, what the client receives, and why an accurate figure matters when selling. End with a short multi-field enquiry form. Do not promise a specific timescale or fee that was not supplied.' },
+    { slug: 'selling-process', title: 'How Selling Works', minSections: 4,
+      intent: 'Step-by-step selling journey from first valuation to completion, numbered, with what the client must do at each stage and how long each stage typically takes.' },
+    { slug: 'landlords', title: 'Landlord Services', minSections: 3,
+      intent: 'Services for landlords: tenant find, full management, compliance obligations, rent collection, and what differs between the two service levels.' },
+  ],
+  'tax': [
+    { slug: 'fees', title: 'Fee Schedule', minSections: 3,
+      intent: 'Transparent fee structure. Give indicative bands per service with what each includes and excludes, and state clearly that a fixed quote follows a free initial review. Use a <CostComparisonTable/> for the bands.' },
+    { slug: 'deadlines', title: 'Key Tax Deadlines', minSections: 3,
+      intent: 'Calendar of the filing and payment deadlines that apply to the firm\'s clients, in chronological order, with the consequence of missing each one. Use generic recurring dates only, never a specific unverified deadline for a named year.' },
+    { slug: 'process', title: 'How We Work', minSections: 4,
+      intent: 'The engagement process from first call to filing: onboarding, document collection, review, submission, and ongoing support. Explain what records the client must keep.' },
+    { slug: 'sectors', title: 'Sectors We Serve', minSections: 3,
+      intent: 'Which client types the practice acts for (contractors, landlords, owner-managed companies, individuals) and the specific issues each faces.' },
+  ],
+};
+
+// Anything after the first comma or space-separated word is a qualifier
+// ("real estate agency" -> "real estate"), so match on the leading phrase.
+function nichePages(niche) {
+  const key = String(niche || '').toLowerCase();
+  for (const [needle, extra] of Object.entries(NICHE_PAGES)) {
+    if (key.includes(needle.replace(' ', ''))) return extra;
+    if (key.includes(needle)) return extra;
+  }
+  return [];
+}
+
+// Suffix the base set with the niche pages, then de-duplicate by slug so a
+// service that happens to be called "Valuation" cannot produce two /valuation
+// pages (which would also violate the pages unique(site_id, slug) constraint).
+{
+  const seen = new Set(pages.map((p) => p.slug));
+  for (const extra of nichePages(request.niche)) {
+    if (seen.has(extra.slug)) continue;
+    seen.add(extra.slug);
+    pages.push(extra);
+  }
+}
 
 return pages.map((page) => ({
   json: {
@@ -566,14 +660,38 @@ HARD RULES
    arbitrary values are fine and encouraged: p-[38px], grid-cols-[1.1fr_0.9fr], text-[1.0625rem].
    NEVER nest minmax() inside grid-template-columns - browsers drop the whole declaration.
 5. EXACTLY ONE <h1> for the page. Use <h2> for section headings. Every <img> needs a descriptive alt.
-6. Use ONLY these interactive components, spelled exactly:
+6. Use ONLY these components, spelled exactly. Never import anything.
+   CONTENT (server-rendered):
    <QuickSummary points={["...","..."]} />
    <CostComparisonTable title="..." rows={[{label,detail,price}]} />
    <FaqAccordion title="..." items={[{q,a}]} />
    <DoctorReviewedBadge name="..." credentials="..." date="..." />
    <Callout type="note|tip|warning">text</Callout>
    <InlineLeadCTA ctaText="..." service="..." phone="..." />
-   Never import anything. Never use any other component.
+   MOTION (client-side, these animate in the browser - USE THEM, a page with none of these
+   is a static page and will be rejected as too plain):
+   <ScrollProgress />                        thin progress bar pinned to the top of the viewport
+   <Reveal>...</Reveal>                      fades/slides its children in on scroll. Wrap each
+                                             major section: <Reveal><section>...</section></Reveal>
+                                             Optional props: delay={0.1} y={24} as="div"
+   <Parallax speed={0.2}>...</Parallax>      slides its children against the scroll. Use around a
+                                             hero visual or a full-bleed band. speed 0.1 subtle,
+                                             0.4 dramatic.
+   <StatCounter value={1200} suffix="+" label="Projects delivered" />
+                                             a number that counts up when scrolled into view.
+                                             Use only real figures from the client facts.
+   <TiltCard>...</TiltCard>                  3D tilt that follows the pointer. Use for service
+                                             cards and feature tiles.
+   <StickyScene height="200vh">...</StickyScene>
+                                             pins its child while the user scrolls through it.
+                                             Use ONCE per page for the strongest single idea.
+   <Marquee speed={28}>Item one · Item two · Item three</Marquee>
+                                             infinite horizontal scroller. Use for a trust strip
+                                             of logos, credentials or localities.
+   MOTION RULES: every page MUST use at least one motion component, and the home page MUST use
+   <ScrollProgress /> plus at least two of <Reveal>, <Parallax>, <StatCounter>, <StickyScene>.
+   Never put a motion component inside another motion component's props. Keep <Reveal> wrapping a
+   whole section rather than every paragraph, or the page feels twitchy.
 7. FACTS: never invent awards, review counts, certifications, statistics, or staff names. Only use
    facts present in the business brief. If a fact is not given, write copy that does not need it.
 8. PROSE: UK/Indian English. Concrete nouns and numbers. No "in today's fast-paced world", no

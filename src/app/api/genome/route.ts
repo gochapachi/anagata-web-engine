@@ -20,6 +20,7 @@ import {
 } from '@/lib/genome';
 import type { DesignGenome } from '@/lib/types';
 import { fetchRecentSites } from '@/lib/supabase';
+import { pickDesignSkill, designSkillBlock } from '@/lib/design-skill-map';
 
 /**
  * Design-genome service, called by the n8n site-builder workflow.
@@ -125,6 +126,11 @@ export async function POST(req: NextRequest) {
 
   const genome = pickGenome({ seed, niche, city }, recent);
 
+  // The design skill is a SUB-AXIS of the shell: it fills the craft gaps the
+  // shell leaves open (state coverage, spacing discipline, anti-patterns). It
+  // cannot weaken bans B1-B4 because it is not part of structureSignature().
+  const { skill, candidates } = pickDesignSkill(genome.shell_archetype, seed);
+
   const priorGenomes: DesignGenome[] = (body.recent ?? []).map((signature) => {
     const [shell_archetype, nav_topology, color_mode] = signature.split('|');
     return {
@@ -144,6 +150,15 @@ export async function POST(req: NextRequest) {
     genome,
     rhythm: genome._rhythm,
     rationale: genome._rationale,
+    // Craft layer: one vendored design skill whose declared style is
+    // compatible with the shell. `block` is pre-rendered prompt text; the
+    // workflow injects it verbatim into the page agent's brief.
+    design_skill: {
+      slug: skill.slug,
+      name: skill.name,
+      block: designSkillBlock(skill),
+      candidates,
+    },
     // The workflow should refuse to publish when `similarity_ok` is false. It
     // cannot legitimately be false with a correct ban list, which is the point:
     // a false value means the ledger read failed.

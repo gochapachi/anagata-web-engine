@@ -12,3 +12,6 @@ dist/
 .agents/
 .claude/skills/
 .engine-secrets.local
+tsconfig.tsbuildinfo
+authverify2.json
+design-skills/

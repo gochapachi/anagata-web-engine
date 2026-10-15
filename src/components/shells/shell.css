@@ -255,3 +255,38 @@ body {
     letter-spacing: -0.01em;
   }
 }
+
+/* ---------------------------------------------------------------- motion --
+   Keyframes for the motion primitives in src/components/motion. They live here,
+   in the stylesheet the tenant layout already imports, so motion styles ship with
+   the shell rather than depending on the AI-authored CSS pipeline. */
+
+@keyframes shell-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    /* The list is rendered twice, so -50% lands exactly on the duplicate's start
+       and the loop is seamless. */
+    transform: translateX(-50%);
+  }
+}
+
+/* 3D tilt cards need a perspective context on their parent, and their own
+   transform origin dead centre so rotation feels anchored. */
+.shell-tilt {
+  transform-style: preserve-3d;
+  transition: transform 0.25s ease-out;
+}
+
+.shell-sticky-scene {
+  position: relative;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Belt-and-braces: the JS primitives already check this, but a CSS-only
+     animation (the marquee) must stop on its own. */
+  .shell-marquee-track {
+    animation: none !important;
+  }
+}

@@ -4,6 +4,26 @@ import { MDX_COMPONENTS } from './blocks';
 import { extractClassCandidates } from '@/lib/compile';
 
 /**
+ * Components that MUST be client-side for their effect to work.
+ *
+ * The MDX renderer below is a SERVER component, and a server component cannot
+ * import a client component and pass it children that contain other server
+ * components... unless the client boundary is declared here. Next.js resolves
+ * the 'use client' directive at module level, so these are already client
+ * components by the time the map is built — this list exists to make the
+ * boundary explicit and testable rather than implicit.
+ */
+export const CLIENT_MOTION_COMPONENTS = [
+  'Reveal',
+  'Parallax',
+  'StatCounter',
+  'TiltCard',
+  'StickyScene',
+  'ScrollProgress',
+  'Marquee',
+] as const;
+
+/**
  * Resilient MDX renderer.
  *
  * Flaw this closes: a single malformed MDX payload would otherwise take down a
