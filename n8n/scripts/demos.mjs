@@ -17,18 +17,17 @@ import { dirname, join } from 'node:path';
 
 const LOG = join(dirname(fileURLToPath(import.meta.url)), 'demos.log');
 writeFileSync(LOG, `# demos started ${new Date().toISOString()}\n`);
-const _log = console.log.bind(console);
-console.log = (...args) => {
+function say(...args) {
   const line = args.join(' ');
-  _log(line);
+  console.log(line);
   try {
     appendFileSync(LOG, line + '\n');
   } catch {
     /* logging must never break the run */
   }
-};
+}
 
-const URL = 'https://n8n.anagataitsolutions.in/webhook/nextjs-site-generator-v2';
+const URL = 'https://n8n.anagataitsolutions.in/webhook/nextjs-site-generator-v3';
 
 const DEMOS = {
   re: {

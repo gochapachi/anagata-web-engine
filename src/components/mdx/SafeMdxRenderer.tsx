@@ -1,7 +1,7 @@
 import { compile, run } from '@mdx-js/mdx';
 import * as runtime from 'react/jsx-runtime';
 import { MDX_COMPONENTS } from './blocks';
-import { extractClassCandidates } from '@/lib/compile';
+import { extractClassCandidates, unwrapWholeBlockFence } from '@/lib/compile';
 
 /**
  * Components that MUST be client-side for their effect to work.
@@ -48,8 +48,19 @@ export async function renderMdx(source: string): Promise<RenderedMdx> {
     return { ok: true, element: null };
   }
 
+  // Unwrap the fence the agent delivers its whole page in, so the CONTENTS are
+  // compiled, not the fence itself. Without this the MDX compiler treats the
+  // ```mdx wrapper as a markdown code BLOCK and renders the entire page as a
+  // <pre> of its own source - while the CSS gate (which had always unwrapped)
+  // still compiled the classes correctly. That is why the pages shipped with
+  // 17-22KB of compiled_css and still rendered as raw text on screen.
+  // A source that is not a whole-block wrapper (prose with its own inline
+  // examples) is passed straight through, so those still render as markdown.
+  const unwrapped = unwrapWholeBlockFence(source);
+  const mdxSource = unwrapped !== null ? unwrapped : source;
+
   try {
-    const compiled = await compile(source, {
+    const compiled = await compile(mdxSource, {
       // jsx: false, NOT true.
       //
       // With jsx: true the compiler emits raw JSX ("return <><section ...>") and
@@ -84,8 +95,8 @@ export async function renderMdx(source: string): Promise<RenderedMdx> {
     // exactly how the jsx:true defect survived a full end-to-end run.
     console.error('[renderMdx] MDX compile/run failed; falling back to raw source', {
       error: error?.message ?? String(error),
-      sourceLength: source.length,
-      sourceHead: source.slice(0, 120),
+      sourceLength: mdxSource.length,
+      sourceHead: mdxSource.slice(0, 120),
     });
     return {
       ok: false,
@@ -101,7 +112,7 @@ export async function renderMdx(source: string): Promise<RenderedMdx> {
             borderRadius: 'var(--radius-card)',
           }}
         >
-          {source}
+          {mdxSource}
         </pre>
       ),
     };

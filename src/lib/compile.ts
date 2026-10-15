@@ -53,6 +53,24 @@ const CLASSNAME_PATTERNS = [
 ];
 
 /**
+ * Unwraps a fence that WRAPS THE WHOLE BLOCK, returning the inner content.
+ * Returns null when the source is NOT a single wrapping fence.
+ *
+ * Exported because TWO consumers need the identical decision: the CSS gate
+ * (`stripCodeFences`, below) and the page renderer. The agent's entire
+ * deliverable is one ```mdx fence, so both must unwrap it. Keeping one
+ * implementation means they cannot disagree — a previous split had the gate
+ * unwrapping while the renderer compiled the fence itself as a markdown
+ * *code block*, so every page rendered as a <pre> of its own source while
+ * still returning HTTP 200 with correct CSS.
+ */
+export function unwrapWholeBlockFence(source: string): string | null {
+  const text = String(source ?? '');
+  const wrapper = /^\s*(?:```|~~~)[^\n]*\n([\s\S]*?)\n?\s*(?:```|~~~)\s*$/.exec(text);
+  return wrapper ? wrapper[1] : null;
+}
+
+/**
  * Strips a code fence that WRAPS THE WHOLE BLOCK, leaving any inner example
  * fences alone.
  *
@@ -70,8 +88,8 @@ const CLASSNAME_PATTERNS = [
 function stripCodeFences(source: string): string {
   const text = String(source ?? '');
 
-  const wrapper = /^\s*(?:```|~~~)[^\n]*\n([\s\S]*?)\n?\s*(?:```|~~~)\s*$/.exec(text);
-  if (wrapper) return wrapper[1];
+  const unwrapped = unwrapWholeBlockFence(text);
+  if (unwrapped !== null) return unwrapped;
 
   // No whole-block wrapper: drop embedded example fences so their contents are
   // not scraped as real markup.
