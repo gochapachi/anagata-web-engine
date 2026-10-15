@@ -390,7 +390,13 @@ resetPositions();
 // Bump Retry can reattach full page context without per-item bookkeeping.
 // =========================================================================
 
-/** LangChain HTTP-Request TOOL node (9router search / fetch). */
+/** LangChain HTTP-Request TOOL node (9router search / fetch).
+ *
+ * Header pitfall this exists to avoid: toolHttpRequest has SEPARATE flags for
+ * sending headers vs sending a body. A node that carries `headerParameters`
+ * WITHOUT `sendHeaders: true` silently drops every header, including the
+ * 9router Bearer token and the Content-Type - the call reaches the API
+ * unauthenticated and fails. The build guard asserts the flags. */
 function toolHttpNode({
   name,
   toolDescription,
@@ -525,10 +531,14 @@ return [{
 /* ---- research agent + 9router tools -------------------------------------- */
 v3BuilderNodes.push(
   toolHttpNode({
-    name: '9Router Web Search',
+    name: 'Search Web',
     toolDescription: 'Search the web for business information, local competitors, services, and market facts.',
     method: 'POST',
     url: `${NINEROUTER_URL}/search`,
+    headers: [
+      { name: 'Content-Type', value: 'application/json' },
+      { name: 'Authorization', value: `Bearer ${NINEROUTER_KEY}` },
+    ],
     headers: [
       { name: 'Content-Type', value: 'application/json' },
       { name: 'Authorization', value: `Bearer ${NINEROUTER_KEY}` },
@@ -544,10 +554,14 @@ v3BuilderNodes.push(
     }),
   }),
   toolHttpNode({
-    name: '9Router Web Fetch',
+    name: 'Fetch Web Page',
     toolDescription: 'Fetch and read the content of a web page URL as markdown.',
     method: 'POST',
     url: `${NINEROUTER_URL}/web/fetch`,
+    headers: [
+      { name: 'Content-Type', value: 'application/json' },
+      { name: 'Authorization', value: `Bearer ${NINEROUTER_KEY}` },
+    ],
     headers: [
       { name: 'Content-Type', value: 'application/json' },
       { name: 'Authorization', value: `Bearer ${NINEROUTER_KEY}` },
@@ -566,8 +580,8 @@ v3BuilderNodes.push(
     name: 'Research Agent',
     systemMessage: `You are a business researcher for a professional-services website.
 You research the business, its niche, its city and its competitors using two tools:
-1. '9Router Web Search' — call it with the argument {"query": "<specific query — niche + city>"}
-2. '9Router Web Fetch' — call it with {"url": "<page url>"} to read a page as markdown
+1. 'Search Web' — call it with the argument {"query": "<specific query — niche + city>"}
+2. 'Fetch Web Page' — call it with {"url": "<page url>"} to read a page as markdown
 
 Gather REAL facts only. NEVER invent statistics, awards, review counts, staff names, prices,
 addresses or dates. If a fact is not verifiable, mark it UNKNOWN and move on.
@@ -735,7 +749,7 @@ return [{ json: { ...site, navigation: { items: primaryUnique, footer: footerIte
   httpNode({
     name: 'Upsert Site Row',
     method: 'POST',
-    url: `${SUPABASE_REST}/sites`,
+    url: `${SUPABASE_REST}/sites?on_conflict=slug`,
     jsonBody: `={{ JSON.stringify({
   slug: $json.slug,
   domain: $json.domain,
@@ -1058,41 +1072,90 @@ const request = $('Normalize Site Request').first().json;
 // page agent writes a self-contained page and emits its own - giving two headers,
 // two footers and two <h1>s on screen (the audit's top finding).
 //
-// The logic is INLINED rather than imported: an n8n Code node is a sandbox with
-// no access to this repo's TypeScript modules. src/lib/sanitize-mdx.ts carries
-// the same implementation and its tests; keep the two in step when editing.
+// NOTE ON ESCAPING: this block runs inside an n8n Code node, emitted through a
+// JS template literal in this generator. Backslash-heavy regex literals do NOT
+// survive that chain (each transport layer eats one level). This implementation
+// therefore uses ONLY string ops - indexOf/slice/toLowerCase - which have zero
+// backslash-sensitive content. src/lib/sanitize-mdx.ts carries the regex-based
+// equivalent with tests; keep the BEHAVIOUR in step when editing.
 function dropTag(tag, html) {
-  const open = new RegExp('<' + tag + '(\\\\s[^>]*)?>', 'i');
-  const close = new RegExp('</' + tag + '\\\\s*>', 'i');
-  let out = html;
+  let out = String(html);
+  const openNeedle = '<' + tag;
+  const closeNeedle = '</' + tag + '>';
   for (let guard = 0; guard < 12; guard++) {
-    const start = open.exec(out);
-    if (!start) break;
-    if (!start.index && start.index !== 0) break;
-    const closeMatch = close.exec(out.slice(start.index));
-    if (!closeMatch) break;
-    const end = start.index + closeMatch.index + closeMatch[0].length;
-    out = out.slice(0, start.index) + out.slice(end);
+    const lower = out.toLowerCase();
+    const at = lower.indexOf(openNeedle);
+    if (at === -1) break;
+    const gt = out.indexOf('>', at);
+    if (gt === -1) break;
+    if (out[gt - 1] === '/') {
+      out = out.slice(0, at) + out.slice(gt + 1);
+      continue;
+    }
+    let depth = 1;
+    let cursor = gt + 1;
+    let closed = -1;
+    while (depth > 0) {
+      const l2 = out.toLowerCase();
+      const no = l2.indexOf(openNeedle, cursor);
+      const nc = l2.indexOf(closeNeedle, cursor);
+      if (nc === -1) { closed = -1; break; }
+      if (no !== -1 && no < nc) {
+        const g2 = out.indexOf('>', no);
+        if (g2 === -1) { closed = -1; break; }
+        if (out[g2 - 1] !== '/') depth += 1;
+        cursor = g2 + 1;
+      } else {
+        depth -= 1;
+        cursor = nc + closeNeedle.length;
+        if (depth === 0) closed = cursor;
+      }
+    }
+    if (closed === -1) break;
+    out = out.slice(0, at) + out.slice(closed);
   }
-  return out.replace(new RegExp('<' + tag + '(\\\\s[^>]*)?/>', 'gi'), '');
+  return out;
+}
+
+function stripTagsText(html) {
+  let out = '';
+  let inTag = false;
+  for (let i = 0; i < html.length; i++) {
+    const ch = html[i];
+    if (ch === '<') { inTag = true; continue; }
+    if (ch === '>') { inTag = false; continue; }
+    if (!inTag) out += ch;
+  }
+  return out;
 }
 
 function dedupeH1(html, businessName) {
-  const name = String(businessName ?? '').trim().toLowerCase();
-  const re = /<h1(\\s[^>]*)?>([\s\S]*?)<\/h1\\s*>/gi;
-  const found = [];
-  let m;
-  while ((m = re.exec(html)) !== null) {
-    const text = m[2].replace(/<[^>]+>/g, '').trim();
-    found.push({ start: m.index, end: m.index + m[0].length, isName: name.length > 0 && text.toLowerCase().includes(name) });
+  const name = String(businessName == null ? '' : businessName).trim().toLowerCase();
+  const lower = html.toLowerCase();
+  const spans = [];
+  let from = 0;
+  for (;;) {
+    const a = lower.indexOf('<h1', from);
+    if (a === -1) break;
+    const gt = html.indexOf('>', a);
+    if (gt === -1) break;
+    const c = lower.indexOf('</h1', gt);
+    if (c === -1) break;
+    const ce = html.indexOf('>', c);
+    if (ce === -1) break;
+    const text = stripTagsText(html.slice(gt + 1, c)).trim();
+    spans.push({ start: a, end: ce + 1, isName: name.length > 0 && text.toLowerCase().indexOf(name) !== -1 });
+    from = ce + 1;
   }
-  if (found.length <= 1) return html;
-  const keepIndex = found.findIndex((f) => !f.isName);
-  const keep = keepIndex === -1 ? 0 : keepIndex;
+  if (spans.length <= 1) return html;
+  let keep = 0;
+  for (let i = 0; i < spans.length; i++) {
+    if (!spans[i].isName) { keep = i; break; }
+  }
   let out = html;
-  for (let i = found.length - 1; i >= 0; i--) {
+  for (let i = spans.length - 1; i >= 0; i--) {
     if (i === keep) continue;
-    out = out.slice(0, found[i].start) + out.slice(found[i].end);
+    out = out.slice(0, spans[i].start) + out.slice(spans[i].end);
   }
   return out;
 }
@@ -1239,8 +1302,8 @@ v3BuilderConnections['Webhook - Create Next.js Site'] = { main: [[edge('Normaliz
 v3BuilderConnections['Normalize Site Request'] = { main: [[edge('Get Design Genome')]] };
 v3BuilderConnections['Get Design Genome'] = { main: [[edge('Prepare Research Prompt')]] };
 v3BuilderConnections['Prepare Research Prompt'] = { main: [[edge('Research Agent')]] };
-v3BuilderConnections['9Router Web Search'] = { ai_tool: [[edge('Research Agent', 0, 'ai_tool')]] };
-v3BuilderConnections['9Router Web Fetch'] = { ai_tool: [[edge('Research Agent', 0, 'ai_tool')]] };
+v3BuilderConnections['Search Web'] = { ai_tool: [[edge('Research Agent', 0, 'ai_tool')]] };
+v3BuilderConnections['Fetch Web Page'] = { ai_tool: [[edge('Research Agent', 0, 'ai_tool')]] };
 v3BuilderConnections['Model - Research'] = { ai_languageModel: [[edge('Research Agent', 0, 'ai_languageModel')]] };
 v3BuilderConnections['Research Agent'] = { main: [[edge('Prepare Sitemap Prompt')]] };
 v3BuilderConnections['Prepare Sitemap Prompt'] = { main: [[edge('Sitemap Architect')]] };
