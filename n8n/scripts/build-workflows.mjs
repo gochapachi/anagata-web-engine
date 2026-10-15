@@ -1166,7 +1166,7 @@ cleaned = dedupeH1(cleaned, request.business_name);
 
 // If stripping chrome removed everything, treat as salvage rather than storing
 // a page whose markup is gone.
-if (!cleaned.mdx.includes('<section')) {
+if (!cleaned.includes('<section')) {
   return [{
     json: {
       site_id: page.site_id,
@@ -1185,7 +1185,7 @@ return [{
     site_id: page.site_id,
     slug: String(page.slug ?? '').replace(/^\\//, ''),
     title: page.title ?? '',
-    sections: [{ mdx: cleaned.mdx, anchor: 'content' }],
+    sections: [{ mdx: cleaned, anchor: 'content' }],
     compiled_css: String(page.css ?? gate.css ?? ''),
     published: true,
   },
@@ -1209,7 +1209,7 @@ return [{
   httpNode({
     name: 'Upsert Page',
     method: 'POST',
-    url: `${SUPABASE_REST}/pages`,
+    url: `${SUPABASE_REST}/pages?on_conflict=site_id,slug`,
     jsonBody: `={{ JSON.stringify({ site_id: $json.site_id, slug: $json.slug, title: $json.title, sections: $json.sections, compiled_css: $json.compiled_css, published: $json.published }) }}`,
     headers: [
       { name: 'Content-Type', value: 'application/json' },
