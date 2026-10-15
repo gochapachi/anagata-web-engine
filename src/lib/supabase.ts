@@ -11,6 +11,7 @@
 
 import { unstable_cache } from 'next/cache';
 import type { PageRow, PostRow, SiteRow } from './types';
+import { normalizeHost } from './domain';
 
 const SUPABASE_URL = () => (process.env.SUPABASE_URL ?? '').replace(/\/+$/, '');
 const SUPABASE_KEY = () => process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
@@ -99,7 +100,12 @@ export async function fetchSite(host: string): Promise<SiteRow | null> {
 
   const bySlug = await postgrest<SiteRow[]>(
     'sites',
-    `select=*&slug.eq.${encodeURIComponent(slug)}&status=neq.suspended&limit=1`
+    // `slug=eq.` NOT `slug.eq.`. The dot form is not PostgREST filter syntax: the
+    // parameter is ignored entirely and the query returns the FIRST row of the
+    // table, so every tenant resolved to the oldest site - all ten previews
+    // rendered 'Fix Verify Dental'. Silent, because the request still returns 200
+    // with a valid-looking row.
+    `select=*&slug=eq.${encodeURIComponent(slug)}&status=neq.suspended&limit=1`
   );
   return bySlug[0] ?? null;
 }
@@ -112,16 +118,42 @@ function previewBaseDomain(): string {
     .replace(/\/+$/, '');
 }
 
-/** Cached tenant lookup, tagged per host. */
-export const getSite = (host: string) =>
-  unstable_cache(() => fetchSite(host), ['site', host], {
-    tags: [siteTag(host)],
-    revalidate: 3600,
-  })();
+/**
+ * Cached tenant lookup, keyed by the NORMALIZED host.
+ *
+ * WHY NORMALIZE BEFORE CACHING: the cache key must be the tenant's identity, not
+ * whatever string happened to arrive. Hosts reach us in several equivalent forms -
+ * the client domain, the stored `preview_subdomain` (which for older rows is the
+ * stale two-label value), or a bare `<slug>.<SITES_BASE_DOMAIN>`. Keying on the
+ * raw string meant those variants did not share one identity, and because
+ * Next.js' Data Cache is shared across every visitor, the first tenant resolved
+ * was reused for every host: all ten previews rendered "Fix Verify Dental", the
+ * oldest row, while the database held ten correct, distinct tenants.
+ *
+ * Normalizing first collapses every equivalent form onto ONE key, so each tenant
+ * occupies its own cache slot and can never answer another tenant's request.
+ */
+export const getSite = (host: string) => {
+  const normalized = normalizeHost(host);
+  return unstable_cache(
+    () => fetchSite(normalized),
+    ['site', normalized],
+    { tags: [siteTag(normalized)], revalidate: 3600 }
+  )();
+};
 
-/** Single page by slug. `slug` is normalized (`/` for home). */
-export const getPage = (host: string, siteId: string, slug: string) =>
-  unstable_cache(
+/**
+ * Single page by slug. `slug` is normalized (`/` for home).
+ *
+ * The host is normalized BEFORE it enters the cache key and the invalidation tag.
+ * A raw host meant the tag written by /api/revalidate (`site:<normalized>`) and
+ * the tag on the cached entry (`site:<raw>`) could differ, so a republish would
+ * not actually purge the page it targeted - and two host variants of the same
+ * tenant would occupy separate slots.
+ */
+export const getPage = (host: string, siteId: string, slug: string) => {
+  const normalized = normalizeHost(host);
+  return unstable_cache(
     async (): Promise<PageRow | null> => {
       const rows = await postgrest<PageRow[]>(
         'pages',
@@ -129,37 +161,43 @@ export const getPage = (host: string, siteId: string, slug: string) =>
       );
       return rows[0] ?? null;
     },
-    ['page', host, slug],
-    { tags: [siteTag(host)], revalidate: 3600 }
+    ['page', normalized, slug],
+    { tags: [siteTag(normalized)], revalidate: 3600 }
   )();
+};
 
 /** All published pages for a tenant (used to build nav + sitemap). */
-export const getPages = (host: string, siteId: string) =>
-  unstable_cache(
+export const getPages = (host: string, siteId: string) => {
+  const normalized = normalizeHost(host);
+  return unstable_cache(
     async (): Promise<PageRow[]> =>
       postgrest<PageRow[]>(
         'pages',
         `select=id,slug,title,seo_meta&site_id=${eq(siteId)}&published=is.true&order=slug.asc`
       ),
-    ['pages', host],
-    { tags: [siteTag(host)], revalidate: 3600 }
+    ['pages', normalized],
+    { tags: [siteTag(normalized)], revalidate: 3600 }
   )();
+};
 
 /** Published posts, newest first. */
-export const getPosts = (host: string, siteId: string, limit = 100) =>
-  unstable_cache(
+export const getPosts = (host: string, siteId: string, limit = 100) => {
+  const normalized = normalizeHost(host);
+  return unstable_cache(
     async (): Promise<PostRow[]> =>
       postgrest<PostRow[]>(
         'posts',
         `select=id,slug,title,excerpt,cover_image,category,tags,author,published_at,reading_time_mins&site_id=${eq(siteId)}&status=eq.published&order=published_at.desc&limit=${limit}`
       ),
-    ['posts', host, String(limit)],
-    { tags: [siteTag(host)], revalidate: 3600 }
+    ['posts', normalized, String(limit)],
+    { tags: [siteTag(normalized)], revalidate: 3600 }
   )();
+};
 
 /** Single published post including its MDX body. */
-export const getPost = (host: string, siteId: string, slug: string) =>
-  unstable_cache(
+export const getPost = (host: string, siteId: string, slug: string) => {
+  const normalized = normalizeHost(host);
+  return unstable_cache(
     async (): Promise<PostRow | null> => {
       const rows = await postgrest<PostRow[]>(
         'posts',
@@ -170,6 +208,7 @@ export const getPost = (host: string, siteId: string, slug: string) =>
     ['post', host, slug],
     { tags: [siteTag(host), postTag(host, slug)], revalidate: 3600 }
   )();
+};
 
 /** Recent tenants, for the workflow's anti-sameness diversity check. */
 export async function fetchRecentSites(limit: number, niche?: string): Promise<SiteRow[]> {
