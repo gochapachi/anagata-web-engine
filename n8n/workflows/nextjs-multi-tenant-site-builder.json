@@ -1346,7 +1346,7 @@
     "saveDataErrorExecution": "all",
     "saveDataSuccessExecution": "all",
     "saveManualExecutions": true,
-    "executionTimeout": 1800,
+    "executionTimeout": 5400,
     "timezone": "Asia/Kolkata"
   },
   "tags": []
