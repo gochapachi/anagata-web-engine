@@ -843,7 +843,9 @@ HARD RULES
    var(--font-heading) var(--font-body).
 4. CLASSES: all layout classes INSIDE className="..." so they compile. Tailwind arbitrary values
    are encouraged: p-[38px], grid-cols-[1.1fr_0.9fr]. NEVER nest minmax() in grid-template-columns.
-5. EXACTLY ONE <h1>. Every <img> needs a descriptive alt.
+5. ZERO <h1> elements. The engine prints the page title as the single <h1> ABOVE your content,
+   so any <h1> you write is a visible duplicate. Your own headings start at <h2>. Every <img>
+   needs a descriptive alt.
 6. SECTIONS: write AT LEAST {{ $json.minSections }}. Each section is its own <section> element
    with a className. Fewer sections FAILS review.
 7. MOTION + 3D (REQUIRED — a page with none is a static page and FAILS review):
@@ -879,8 +881,8 @@ HARD RULES
    the footer and the site's business name as the display title. You MUST NOT emit <header>,
     <nav>, <footer>, or an <h1> that merely repeats the business name. Start your page with the
     first <section> of real content and use <h2> for its heading. Writing your own header,
-    footer or nav produces TWO of them stacked on the live page. Your <h1> must be a real
-    page-specific headline, not the business name.
+    footer or nav produces TWO of them stacked on the live page. There is no room for a second
+    H1 after the engine's — never emit <h1>; start your headings at <h2>.
 9b. NEVER write a phone number as loose text. Phone numbers appear only inside
     <InlineLeadCTA phone="..." /> or a tel: link, both of which are styled and clickable.
 9c. Do not use raw HTML <details>, <summary> or <table>. Use <FaqAccordion .../> and
@@ -956,7 +958,9 @@ Check, IN ORDER:
 2. MOTION/3D: <ScrollProgress /> plus at least two of Reveal/Parallax/StatCounter/TiltCard/
    StickyScene/Marquee/ParticleField/Scene3D? Home page must have Scene3D and StickyScene.
    Missing -> fail, name the exact missing ones.
-3. H1 COUNT: exactly one <h1>. Zero or two+ -> fail.
+3. H1 COUNT: the page BODY must contain ZERO <h1> — the engine renders the page title as the
+   single H1 above the content, so an agent-authored <h1> is always a duplicate on screen.
+   One or more -> fail. (h1_count reports what you found in the body.)
 4. FABRICATION: any invented statistic, price, award, staff name, review count not in the
    research brief -> fail, name the fabricated fact.
 5. PLACEHOLDER: lorem ipsum, "TODO", "example.com" links, empty sections -> fail. Also fail if
@@ -1129,40 +1133,80 @@ function stripTagsText(html) {
   return out;
 }
 
-function dedupeH1(html, businessName) {
-  const name = String(businessName == null ? '' : businessName).trim().toLowerCase();
+// The ENGINE renders the page title as the single <h1> (sites/[domain]/[[...page]]
+// /page.tsx prints <h1 className="shell-display">{row.title}</h1> before the MDX).
+// So the agent's own <h1> is always a duplicate, and "keep one" is the wrong
+// rule - it kept one and still produced two on screen. DEMOTE every agent <h1>
+// to <h2> instead: the text survives, heading order stays legal, and the page
+// ends up with exactly one H1 (the engine's).
+//
+// Plain string ops only - no regex. A regex literal emitted through this
+// generator's template literal loses a backslash level per transport hop.
+//
+// isBoundary: the char immediately after an open tag name must be '>', '/', or a
+// space/control. charCodeAt in 1..32 covers space, tab, CR and LF with ZERO
+// backslashes and ZERO backticks, so nothing in this block can be mangled by the
+// template-literal transport (a backtick here terminates the literal; a
+// backslash-n inside a comment becomes a REAL newline and splits the comment).
+function isBoundary(ch) {
+  if (ch === undefined || ch === '>' || ch === '/') return true;
+  const code = ch.charCodeAt(0);
+  return code > 0 && code <= 32;
+}
+
+function stripPTags(html) {
   const lower = html.toLowerCase();
-  const spans = [];
-  let from = 0;
-  for (;;) {
-    const a = lower.indexOf('<h1', from);
-    if (a === -1) break;
-    const gt = html.indexOf('>', a);
-    if (gt === -1) break;
-    const c = lower.indexOf('</h1', gt);
-    if (c === -1) break;
-    const ce = html.indexOf('>', c);
-    if (ce === -1) break;
-    const text = stripTagsText(html.slice(gt + 1, c)).trim();
-    spans.push({ start: a, end: ce + 1, isName: name.length > 0 && text.toLowerCase().indexOf(name) !== -1 });
-    from = ce + 1;
-  }
-  if (spans.length <= 1) return html;
-  let keep = 0;
-  for (let i = 0; i < spans.length; i++) {
-    if (!spans[i].isName) { keep = i; break; }
-  }
-  let out = html;
-  for (let i = spans.length - 1; i >= 0; i--) {
-    if (i === keep) continue;
-    out = out.slice(0, spans[i].start) + out.slice(spans[i].end);
+  let out = '';
+  let i = 0;
+  while (i < html.length) {
+    if (html[i] !== '<') { out += html[i]; i += 1; continue; }
+    const gt = html.indexOf('>', i);
+    if (gt === -1) { out += html.slice(i); return out; }
+    const tag = lower.slice(i, gt + 1);
+    if (tag.slice(1, 2) === 'p' && isBoundary(tag[2])) {
+      i = gt + 1;
+      continue;
+    }
+    if (tag.slice(1, 3) === '/p' && isBoundary(tag[3])) {
+      i = gt + 1;
+      continue;
+    }
+    out += html.slice(i, gt + 1);
+    i = gt + 1;
   }
   return out;
 }
 
+function demoteH1(html) {
+  const lower = html.toLowerCase();
+  let out = '';
+  let cursor = 0;
+  for (;;) {
+    const a = lower.indexOf('<h1', cursor);
+    if (a === -1) { out += html.slice(cursor); return out; }
+    const nc = html[a + 3];
+    // '<h1abc' is not an h1 tag - copy past it
+    if (nc !== undefined && !isBoundary(nc)) {
+      out += html.slice(cursor, a + 3);
+      cursor = a + 3;
+      continue;
+    }
+    const gt = html.indexOf('>', a);
+    if (gt === -1) { out += html.slice(cursor); return out; }
+    const c = lower.indexOf('</h1', gt);
+    if (c === -1) { out += html.slice(cursor); return out; }
+    const ce = html.indexOf('>', c);
+    if (ce === -1) { out += html.slice(cursor); return out; }
+    const attrs = html.slice(a + 3, gt);
+    const inner = stripPTags(html.slice(gt + 1, c));
+    out += html.slice(cursor, a) + '<h2' + attrs + '>' + inner + '</h2>';
+    cursor = ce + 1;
+  }
+}
+
 let cleaned = rawMdx;
 for (const tag of ['header', 'footer', 'nav']) cleaned = dropTag(tag, cleaned);
-cleaned = dedupeH1(cleaned, request.business_name);
+cleaned = demoteH1(cleaned);
 
 // If stripping chrome removed everything, treat as salvage rather than storing
 // a page whose markup is gone.
