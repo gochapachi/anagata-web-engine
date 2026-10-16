@@ -2,6 +2,7 @@ import { compile, run } from '@mdx-js/mdx';
 import * as runtime from 'react/jsx-runtime';
 import { MDX_COMPONENTS } from './blocks';
 import { extractClassCandidates, unwrapWholeBlockFence } from '@/lib/compile';
+import { sanitizePageMdx, unwrapHeadingParagraphs } from '@/lib/sanitize-mdx';
 
 /**
  * Components that MUST be client-side for their effect to work.
@@ -57,10 +58,19 @@ export async function renderMdx(source: string): Promise<RenderedMdx> {
   // A source that is not a whole-block wrapper (prose with its own inline
   // examples) is passed straight through, so those still render as markdown.
   const unwrapped = unwrapWholeBlockFence(source);
-  const mdxSource = unwrapped !== null ? unwrapped : source;
+  const unwrapped2 = unwrapped !== null ? unwrapped : source;
+
+  // Sanitise AT RENDER TIME. The workflow sanitises at store time, but every row
+  // written before that fix (and any run that bypassed it) still carries the
+  // agent's own <header>/<footer>/<nav> — two chrome stacks on screen. Running the
+  // same pass here repairs stored rows with no DB migration and makes render the
+  // single enforcement point. unwrapHeadingParagraphs also kills the invalid
+  // <h1><p>...</p></h1> nesting MDX produces from multiline heading contents.
+  const { mdx: mdxSource } = sanitizePageMdx(unwrapped2);
+  const sanitized = unwrapHeadingParagraphs(mdxSource);
 
   try {
-    const compiled = await compile(mdxSource, {
+    const compiled = await compile(sanitized, {
       // jsx: false, NOT true.
       //
       // With jsx: true the compiler emits raw JSX ("return <><section ...>") and
@@ -95,8 +105,8 @@ export async function renderMdx(source: string): Promise<RenderedMdx> {
     // exactly how the jsx:true defect survived a full end-to-end run.
     console.error('[renderMdx] MDX compile/run failed; falling back to raw source', {
       error: error?.message ?? String(error),
-      sourceLength: mdxSource.length,
-      sourceHead: mdxSource.slice(0, 120),
+      sourceLength: sanitized.length,
+      sourceHead: sanitized.slice(0, 120),
     });
     return {
       ok: false,

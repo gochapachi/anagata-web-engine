@@ -140,6 +140,7 @@ function Masthead({
 
 export function SwissBrutalistShell(props: ShellProps) {
   const { children, brandName, nav, cta, phone, genome } = props;
+  const phoneHref = phone ? `tel:${String(phone).replace(/[^\d+]/g, '')}` : null;
   return (
     // Two-column document: persistent rail + content. On mobile the rail
     // becomes a top bar (see shell.css).
@@ -162,14 +163,19 @@ export function SwissBrutalistShell(props: ShellProps) {
             ))}
           </ul>
         </nav>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <MobileNavToggle nav={nav} cta={cta} />
+        </div>
         {cta ? (
           <a className="shell-btn" href={cta.href} style={{ justifyContent: 'center' }}>
             {cta.label}
           </a>
         ) : null}
-        <span className="shell-eyebrow" style={{ marginTop: 'auto' }}>
-          {phone ?? ''}
-        </span>
+        {phoneHref ? (
+          <a className="shell-eyebrow" href={phoneHref} style={{ marginTop: 'auto', color: 'inherit', textDecoration: 'none' }}>
+            {phone}
+          </a>
+        ) : null}
       </aside>
       <div>
         <main className="shell-main">{children}</main>
@@ -182,6 +188,7 @@ export function SwissBrutalistShell(props: ShellProps) {
 
 export function ClinicalGlassShell(props: ShellProps) {
   const { children, brandName, nav, cta, phone, genome } = props;
+  const phoneHref = phone ? `tel:${String(phone).replace(/[^\d+]/g, '')}` : null;
   return (
     <div style={{ position: 'relative' }}>
       {/* Soft mesh wash sits behind everything; sections stay readable via
@@ -210,15 +217,20 @@ export function ClinicalGlassShell(props: ShellProps) {
                   </li>
                 ))}
               </ul>
-              {cta ? (
-                <a className="shell-btn" href={cta.href}>
-                  {cta.label}
-                </a>
-              ) : null}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <MobileNavToggle nav={nav} cta={cta} />
+                {cta ? (
+                  <a className="shell-btn" href={cta.href}>
+                    {cta.label}
+                  </a>
+                ) : null}
+              </div>
             </div>
-            {phone ? (
+            {phoneHref ? (
               <div className="shell-eyebrow" style={{ paddingBlock: '0.5rem' }}>
-                {phone}
+                <a href={phoneHref} style={{ color: 'inherit', textDecoration: 'none' }}>
+                  {phone}
+                </a>
               </div>
             ) : null}
           </div>
@@ -233,6 +245,7 @@ export function ClinicalGlassShell(props: ShellProps) {
 
 export function WarmOrganicShell(props: ShellProps) {
   const { children, brandName, nav, cta, phone, genome } = props;
+  const phoneHref = phone ? `tel:${String(phone).replace(/[^\d+]/g, '')}` : null;
   return (
     <div>
       <header className="shell-header" style={{ background: 'var(--bg-canvas)' }}>
@@ -247,16 +260,21 @@ export function WarmOrganicShell(props: ShellProps) {
               </li>
             ))}
           </ul>
-          {cta ? (
-            <a className="shell-btn" href={cta.href} style={{ borderRadius: '9999px' }}>
-              {cta.label}
-            </a>
-          ) : null}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <MobileNavToggle nav={nav} cta={cta} />
+            {cta ? (
+              <a className="shell-btn" href={cta.href} style={{ borderRadius: '9999px' }}>
+                {cta.label}
+              </a>
+            ) : null}
+          </div>
         </div>
-        {phone ? (
+        {phoneHref ? (
           <div className="shell-container">
             <div className="shell-eyebrow" style={{ paddingBottom: '0.75rem' }}>
-              {phone}
+              <a href={phoneHref} style={{ color: 'inherit', textDecoration: 'none' }}>
+                {phone}
+              </a>
             </div>
           </div>
         ) : null}
@@ -274,6 +292,7 @@ export function WarmOrganicShell(props: ShellProps) {
 
 export function BentoModularShell(props: ShellProps) {
   const { children, brandName, nav, cta, phone, genome } = props;
+  const phoneHref = phone ? `tel:${String(phone).replace(/[^\d+]/g, '')}` : null;
   return (
     <div>
       <header className="shell-header" style={{ background: 'var(--bg-canvas)', borderBottom: '1px solid color-mix(in srgb, var(--text-primary) 10%, transparent)' }}>
@@ -290,7 +309,12 @@ export function BentoModularShell(props: ShellProps) {
               ))}
             </ul>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              {phone ? <span className="shell-eyebrow">{phone}</span> : null}
+              <MobileNavToggle nav={nav} cta={cta} />
+              {phoneHref ? (
+                <a className="shell-eyebrow" href={phoneHref} style={{ color: 'inherit', textDecoration: 'none' }}>
+                  {phone}
+                </a>
+              ) : null}
               {cta ? (
                 <a className="shell-btn" href={cta.href}>
                   {cta.label}

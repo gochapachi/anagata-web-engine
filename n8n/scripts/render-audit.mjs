@@ -34,7 +34,6 @@ const targets = await (await fetch(`http://127.0.0.1:${CDP_PORT}/json/list`)).js
 const page = targets.find((t) => t.type === 'page' && t.url === 'about:blank') || targets.find((t) => t.type === 'page' && !t.url.startsWith('edge://'));
 if (!page) throw new Error(`no usable CDP page target on :${CDP_PORT} (saw: ${targets.map((t) => t.url).join(', ')})`);
 
-const WebSocketImpl = (await import('ws').then((m) => m.WebSocket)).catch ? null : null;
 let WS;
 try {
   WS = (await import('ws')).WebSocket;
@@ -70,7 +69,13 @@ ws.onmessage = (event) => {
 await send('Page.enable');
 await send('Runtime.enable');
 
-const PROBE = `JSON.stringify((() => {
+/**
+ * The probe runs INSIDE the browser. It is defined as a real function here and
+ * serialized with .toString(), so Node never interpolates its contents — backticks,
+ * ${}, quotes and regexes are plain source. Wrapping a probe in a template literal
+ * is how the previous version died: one inner `${x.tag}` closed the outer literal.
+ */
+const probe = () => {
   const q = (sel) => Array.from(document.querySelectorAll(sel));
   const vis = (el) => {
     const r = el.getBoundingClientRect();
@@ -82,13 +87,16 @@ const PROBE = `JSON.stringify((() => {
     const r = el.getBoundingClientRect();
     return { top: Math.round(r.top + window.scrollY), h: Math.round(r.height), w: Math.round(r.width) };
   };
+  // ALL sections for counting; TOP-LEVEL ones for geometry. The engine wraps each
+  // DB section in <section class="shell-section"> while the agent's MDX nests its
+  // own <section>s inside it - measuring parent-vs-child boxes reported a
+  // 7005px 'overlap' that was just a container holding its own children.
   const sections = q('.shell-section, section').filter((el) => !el.closest('header, footer, nav'));
-  const boxes = sections.map(rect);
+  const topLevel = sections.filter((el) => !el.parentElement.closest('section'));
+  const boxes = topLevel.map(rect);
   const overlaps = [];
   for (let i = 0; i < boxes.length - 1; i++) {
-    const a = boxes[i];
-    const b = boxes[i + 1];
-    const ov = a.top + a.h - b.top;
+    const ov = boxes[i].top + boxes[i].h - boxes[i + 1].top;
     if (ov > 8) overlaps.push({ between: i, overlapPx: ov });
   }
   const headings = q('h1, h2, h3').map((el) => ({
@@ -96,7 +104,6 @@ const PROBE = `JSON.stringify((() => {
     text: (el.innerText || '').trim().slice(0, 90),
     px: getComputedStyle(el).fontSize,
     pChild: el.querySelector('p') !== null,
-    visible: vis(el),
   }));
   const h1s = headings.filter((x) => x.tag === 'h1');
   const buttons = q('button').filter(vis).map((el) => ({
@@ -106,38 +113,42 @@ const PROBE = `JSON.stringify((() => {
   const navLinks = q('header a, nav a').filter(vis);
   const text = (document.body.innerText || '').trim();
   const cs = getComputedStyle(document.body);
+  const dsEl = document.querySelector('[data-site]');
+  const canonEl = document.querySelector('link[rel="canonical"]');
   return {
     url: location.href,
     title: document.title,
     viewport: { w: window.innerWidth, h: window.innerHeight },
     text_len: text.length,
-    text_head: text.slice(0, 200).replace(/\\s+/g, ' '),
+    text_head: text.slice(0, 200).replace(/\s+/g, ' '),
     h1_count: h1s.length,
-    h1s,
-    headings_with_p_child: headings.filter((x) => x.pChild).map((x) => `${x.tag}: ${x.text}`),
+    h1s: h1s,
+    headings_with_p_child: headings.filter((x) => x.pChild).map((x) => x.tag + ': ' + x.text),
     header_count: q('header').filter(vis).length,
     footer_count: q('footer').filter(vis).length,
     section_count: sections.length,
     section_boxes: boxes.slice(0, 14),
     collapsed_sections: boxes.filter((b) => b.w < window.innerWidth * 0.5).length,
     max_section_h: boxes.reduce((m, b) => Math.max(m, b.h), 0),
-    overlaps,
+    overlaps: overlaps,
     visible_nav_links: navLinks.length,
     nav_link_labels: navLinks.map((a) => (a.innerText || '').trim()).filter(Boolean).slice(0, 10),
     visible_buttons: buttons,
-    tel_links: q('a[href^=\\"tel:\\"]').length,
-    raw_phone_text: (text.match(/\\+91[\\d\\s-]{8,}/g) || []).length,
+    tel_links: q('a[href^="tel:"]').length,
+    raw_phone_text: (text.match(/\+91[\d\s-]{8,}/g) || []).length,
     nan_styles: q('[style]').filter((el) => el.getAttribute('style').indexOf('NaN') !== -1).length,
     lorem: /lorem ipsum/i.test(text),
-    placeholder_links: q('a[href*=\\"example.com\\"], a[href=\\"#\\"]').length,
+    placeholder_links: q('a[href*="example.com"], a[href="#"]').length,
     body_font: cs.fontFamily.slice(0, 50),
     body_bg: cs.backgroundColor,
-    data_site: (document.querySelector('[data-site]') || {}).getAttribute ? document.querySelector('[data-site]').getAttribute('data-site') : null,
-    canonical: (document.querySelector('link[rel=\\"canonical\\"]') || {}).href || null,
+    data_site: dsEl ? dsEl.getAttribute('data-site') : null,
+    canonical: canonEl ? canonEl.href : null,
     stylesheet_count: document.styleSheets.length,
     doc_height: Math.round(document.documentElement.scrollHeight),
   };
-})())`;
+};
+
+const PROBE_EXPR = '(' + probe.toString() + ')()';
 
 async function render(label, width, height, mobile) {
   await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile });
@@ -160,7 +171,7 @@ async function render(label, width, height, mobile) {
       prev(event);
     };
   });
-  const out = await send('Runtime.evaluate', { expression: PROBE, returnByValue: true, awaitPromise: true });
+  const out = await send('Runtime.evaluate', { expression: PROBE_EXPR, returnByValue: true, awaitPromise: true });
   const data = typeof out.result?.value === 'string' ? JSON.parse(out.result.value) : out.result?.value;
   if (SHOT_PREFIX) {
     const shot = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: !mobile });

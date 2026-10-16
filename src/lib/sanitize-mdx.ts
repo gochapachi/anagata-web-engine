@@ -96,6 +96,18 @@ export function dedupeH1(source: string, businessName?: string): { mdx: string; 
   return { mdx: out, dropped: matches.length - 1 };
 }
 
+/**
+ * Strips <p> and </p> tags that occur immediately inside heading tags <h1..6>.
+ * MDX wraps multiline JSX contents in <p>, which creates invalid HTML like
+ * <h1><p>Title</p></h1> and triggers hydration mismatches.
+ */
+export function unwrapHeadingParagraphs(html: string): string {
+  return html.replace(/<(h[1-6])(\s[^>]*)?>([\s\S]*?)<\/\1\s*>/gi, (_match, tag, attrs, inner) => {
+    const cleaned = inner.replace(/<\/?p(\s[^>]*)?>/gi, '').trim();
+    return `<${tag}${attrs || ''}>${cleaned}</${tag}>`;
+  });
+}
+
 /** Full pipeline used at store time. */
 export function sanitizeAndDedupePage(
   source: string,
@@ -103,8 +115,9 @@ export function sanitizeAndDedupePage(
 ): { mdx: string; removed: string[]; droppedH1: number } {
   const first = sanitizePageMdx(source);
   const second = dedupeH1(first.mdx, businessName);
+  const unwrapped = unwrapHeadingParagraphs(second.mdx);
   return {
-    mdx: second.mdx,
+    mdx: unwrapped,
     removed: first.removed,
     droppedH1: second.dropped,
   };

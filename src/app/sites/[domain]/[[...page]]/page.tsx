@@ -57,6 +57,14 @@ export default async function TenantPage({
 
   const mdxSources = row.sections.filter((section) => section.mdx).map((section) => section.mdx as string);
 
+  // Exactly one H1 per page, decided here. If any section's MDX owns an <h1>
+  // (the agent's styled hero), the engine does NOT print row.title above it —
+  // that unconditional print was producing two identical-size H1s on every page
+  // in the browser audit. Only when no section supplies one (plain/salvaged
+  // pages) does the engine's title become the H1, so the document is never 0
+  // and never 2.
+  const hasMdxH1 = mdxSources.some((src) => /<h1[\s>]/i.test(src));
+
   // `compiled_css` is populated by the workflow's pre-flight gate. Compiling on
   // demand covers rows written before the gate existed, so a page can never
   // render unstyled.
@@ -84,12 +92,14 @@ export default async function TenantPage({
       {pageSchema ? (
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(pageSchema) }} />
       ) : null}
-      <h1
-        className="shell-display"
-        style={{ paddingInline: 'clamp(1rem, 4vw, 2.5rem)', paddingTop: 'var(--section-gap, 5rem)', margin: 0, maxWidth: 'var(--container-width, 1280px)', marginInline: 'auto' }}
-      >
-        {row.title}
-      </h1>
+      {!hasMdxH1 ? (
+        <h1
+          className="shell-display"
+          style={{ paddingInline: 'clamp(1rem, 4vw, 2.5rem)', paddingTop: 'var(--section-gap, 5rem)', margin: 0, maxWidth: 'var(--container-width, 1280px)', marginInline: 'auto' }}
+        >
+          {row.title}
+        </h1>
+      ) : null}
       {rendered}
       <span hidden data-site={site.slug} />
     </>

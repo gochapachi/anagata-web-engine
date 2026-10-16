@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sanitizePageMdx, dedupeH1, sanitizeAndDedupePage } from '@/lib/sanitize-mdx';
+import { sanitizePageMdx, dedupeH1, sanitizeAndDedupePage, unwrapHeadingParagraphs } from '@/lib/sanitize-mdx';
 
 /**
  * Regression tests for the duplicate-chrome defect the audit found.
@@ -99,5 +99,24 @@ describe('sanitizeAndDedupePage', () => {
     expect(mdx).toContain('Find Your Next Pune Home');
     expect(mdx).not.toContain('shell-header');
     expect(mdx).not.toContain('(c)');
+  });
+});
+describe('unwrapHeadingParagraphs', () => {
+  it('strips a <p> wrapping the heading text (invalid <h1><p> nesting)', () => {
+    const src = '<h1 className="hero"><p>Recruitment built around how Mumbai hires</p></h1>';
+    expect(unwrapHeadingParagraphs(src)).toBe(
+      '<h1 className="hero">Recruitment built around how Mumbai hires</h1>'
+    );
+  });
+
+  it('leaves standalone paragraphs untouched', () => {
+    const src = '<p>body copy</p><h2 id="x"><p>Title</p></h2>';
+    expect(unwrapHeadingParagraphs(src)).toBe('<p>body copy</p><h2 id="x">Title</h2>');
+  });
+
+  it('is applied by sanitizeAndDedupePage', () => {
+    const { mdx } = sanitizeAndDedupePage('<h3><p>sub</p></h3><section>ok</section>');
+    expect(mdx).toContain('<h3>sub</h3>');
+    expect(mdx).not.toContain('<p>sub</p>');
   });
 });
